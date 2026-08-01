@@ -1,9 +1,10 @@
 """
 A股行情数据拉取模块
-通过 NeoData API 获取上一交易日市场数据
+通过 NeoData API 获取上一交易日市场数据，并解析为结构化文本
 """
 import json
 import os
+import re
 import urllib.request
 import ssl
 from datetime import datetime, timedelta
@@ -42,21 +43,49 @@ def call_neodata(query: str) -> dict:
         return {"error": str(e)}
 
 
-def extract_text(data: dict) -> str:
-    """从 neodata 返回结果中提取纯文本内容"""
-    if isinstance(data, dict):
-        if "data" in data:
-            return extract_text(data["data"])
-        if "text" in data:
-            return data["text"]
-        if "content" in data:
-            return extract_text(data["content"])
-        if "answer" in data:
-            return data["answer"]
-        return json.dumps(data, ensure_ascii=False, indent=2)
+def extract_text(data) -> str:
+    """
+    递归从 neodata 返回结果中提取可读文本。
+    优先顺序：text > answer > content > 列表拼接 > JSON 字符串
+    """
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        return data.strip()
+    if isinstance(data, (int, float, bool)):
+        return str(data)
     if isinstance(data, list):
-        return "\n".join(extract_text(item) for item in data)
+        parts = [extract_text(item) for item in data]
+        return "\n".join(p for p in parts if p).strip()
+    if isinstance(data, dict):
+        # 优先取语义化字段
+        for key in ("text", "answer", "content", "markdown", "summary", "result"):
+            if key in data and data[key]:
+                return extract_text(data[key])
+        # 如果只有 apiData / data 等包装字段，继续递归
+        for key in ("data", "apiData", "result", "payload", "response"):
+            if key in data and data[key]:
+                return extract_text(data[key])
+        # 兜底：把所有值拼接
+        parts = []
+        for v in data.values():
+            t = extract_text(v)
+            if t:
+                parts.append(t)
+        return "\n".join(parts).strip()
     return str(data)
+
+
+def clean_text(text: str) -> str:
+    """清理文本，去除重复 JSON 片段"""
+    if not text:
+        return ""
+    # 去掉明显是 JSON 的长串
+    text = re.sub(r'\{["\']?\w*["\']?\s*:\s*\{.*?\}\}', '', text, flags=re.DOTALL)
+    text = re.sub(r'\[\s*\{.*?\}\s*\]', '', text, flags=re.DOTALL)
+    # 合并多余空行
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 
 def fetch_all_market_data(target_date: str = None) -> dict:
@@ -70,25 +99,27 @@ def fetch_all_market_data(target_date: str = None) -> dict:
     print(f"[INFO] 拉取 {target_date} A 股行情数据...")
 
     queries = {
-        "market_overview": f"{target_date} A股大盘行情：上证指数深证成指创业板指收盘点位涨跌幅，两市成交量成交额，涨跌家数统计",
-        "sector_ranking": f"{target_date} A股行业板块涨幅排名 概念板块涨幅排名 涨停家数跌停家数 市场热度",
-        "fund_flow": f"{target_date} A股北向资金净流入流出 主力资金流向 市场热点新闻",
-        "news": f"{target_date} A股市场重大新闻 政策消息 热点事件",
+        "market_overview": f"{target_date} A股大盘行情：上证指数、深证成指、创业板指收盘点位和涨跌幅，两市成交量、成交额、涨跌家数统计",
+        "sector_ranking": f"{target_date} A股行业板块涨幅排名、概念板块涨幅排名、涨停家数、跌停家数",
+        "fund_flow": f"{target_date} A股北向资金净流入流出、主力资金流向、市场热点新闻",
+        "news": f"{target_date} A股市场重大新闻、政策消息、热点事件",
     }
 
     results = {}
     for key, query in queries.items():
         print(f"[INFO] 查询: {key}")
         raw = call_neodata(query)
+        text = clean_text(extract_text(raw))
         results[key] = {
             "raw": raw,
-            "text": extract_text(raw),
+            "text": text,
         }
+        print(f"[INFO] {key} 文本长度: {len(text)}")
 
     today = datetime.now().strftime("%Y-%m-%d")
     return {
         "target_date": target_date,
         "generated_at": today,
-        "is_trading_day": True,  # 默认为交易日，由 generate_report 判断
+        "is_trading_day": True,
         "data": results,
     }

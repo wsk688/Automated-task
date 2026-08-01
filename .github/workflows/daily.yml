@@ -58,7 +58,6 @@ jobs:
           QQ_EMAIL: ${{ secrets.QQ_EMAIL }}
           QQ_EMAIL_AUTH: ${{ secrets.QQ_EMAIL_AUTH }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
-          PAGES_BASE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
         run: |
           python -c "
           import sys; sys.path.insert(0, '.')
@@ -73,8 +72,12 @@ jobs:
           with open('email_summary.txt', 'r', encoding='utf-8') as f:
               summary = f.read()
 
-          base = os.environ.get('PAGES_BASE', '')
-          pages_url = f'{base}/reports/daily_{target}.html' if base else ''
+          # 从 GITHUB_REPOSITORY 解析 Pages 基础 URL，避免 schedule 触发时 repository.name 为空
+          repo_full = os.environ.get('GITHUB_REPOSITORY', '')
+          pages_url = ''
+          if repo_full and '/' in repo_full:
+              owner, repo = repo_full.split('/', 1)
+              pages_url = f'https://{owner}.github.io/{repo}/reports/daily_{target}.html'
 
           send_report_email(html, summary, target, pages_url)
           "
