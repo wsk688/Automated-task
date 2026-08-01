@@ -75,7 +75,7 @@ tr:last-child td { border-bottom: none; }
 .summary-item .label { font-size: 12px; color: #999; margin-bottom: 6px; }
 .summary-item .value { font-size: 20px; font-weight: 700; }
 .bar-container { height: 10px; background: #f0f0f0; border-radius: 5px; overflow: hidden; margin: 10px 0; position: relative; }
-.bar { height: 100%; border-radius: 5px; transition: width 0.3s; }
+.bar { height: 100%; border-radius: 5px; }
 .bar-up { background: linear-gradient(90deg, #ef4444, #dc2626); }
 .bar-down { background: linear-gradient(90deg, #22c55e, #16a34a); }
 .bar-neutral { background: #d4d4d4; }
@@ -103,6 +103,44 @@ tr:last-child td { border-bottom: none; }
 .section { margin-top: 10px; font-size: 13px; color: #555; line-height: 1.8; }
 .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 24px; padding: 12px 0; }
 .mini-note { font-size: 12px; color: #999; margin-top: 8px; }
+
+/* 情绪仪表盘 */
+.gauge-wrap { display: flex; flex-direction: column; align-items: center; margin: 4px 0 6px; }
+.gauge-label { font-size: 13px; color: #666; margin-top: 2px; }
+.gauge-score { font-size: 26px; font-weight: 800; margin-top: -6px; }
+
+/* 投资建议 */
+.advice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+.advice-item { background: #fafafa; border-radius: 10px; padding: 12px; text-align: center; }
+.advice-item .label { font-size: 12px; color: #999; margin-bottom: 6px; }
+.advice-item .value { font-size: 16px; font-weight: 700; }
+.advice-strategy { background: #f8fafc; border-radius: 10px; padding: 14px; font-size: 14px; line-height: 1.8; margin-bottom: 12px; }
+.advice-dir { font-size: 13px; color: #555; line-height: 1.9; }
+.advice-dir .chip {
+    display: inline-block;
+    background: #fff1f0;
+    color: #dc2626;
+    border: 1px solid #ffccc7;
+    border-radius: 12px;
+    padding: 2px 10px;
+    margin: 2px 4px 0 0;
+    font-size: 12px;
+}
+
+/* 预测情景 */
+.scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.scenario { border-radius: 10px; padding: 12px 8px; text-align: center; }
+.scenario-bull { background: #fef2f2; }
+.scenario-base { background: #f5f5f5; }
+.scenario-bear { background: #f0fdf4; }
+.scenario .s-title { font-size: 12px; color: #888; margin-bottom: 4px; }
+.scenario .s-range { font-size: 16px; font-weight: 700; }
+.scenario .s-prob { font-size: 11px; color: #999; margin-top: 2px; }
+.level-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+.level-row:last-child { border-bottom: none; }
+.level-name { color: #333; font-weight: 500; }
+.level-val { font-weight: 600; }
+.disclaimer { font-size: 11px; color: #bbb; line-height: 1.6; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -149,6 +187,20 @@ tr:last-child td { border-bottom: none; }
 
 | 日期 | 开盘价(点) | 收盘价/最新价格(点) | 单日涨跌幅(%) | 成交量(股) | 成交额(元) | 最高点(点) | 最低点(点) | 换手率(%) |
 | :---: | :---: |...</p></div>
+    <div class="gauge-wrap">
+        
+    <svg width="180" height="108" viewBox="0 0 180 108" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="#eee" stroke-width="12" stroke-linecap="round"/>
+        <path d="M 10 90 A 80 80 0 0 1 132.9 22.5" fill="none" stroke="#dc2626" stroke-width="12" stroke-linecap="round"/>
+        <line x1="90" y1="90" x2="132.9" y2="22.5" stroke="#dc2626" stroke-width="3"/>
+        <circle cx="90" cy="90" r="5" fill="#dc2626"/>
+        <text x="12" y="104" font-size="10" fill="#bbb">0 悲观</text>
+        <text x="138" y="104" font-size="10" fill="#bbb">乐观 100</text>
+    </svg>
+    
+        <div class="gauge-score up">68 <span style="font-size:14px;color:#999;font-weight:500;">分</span></div>
+        <div class="gauge-label">综合情绪评分（0 极度悲观 ~ 100 极度乐观）</div>
+    </div>
     <div class="summary-grid">
         <div class="summary-item">
             <div class="label">涨跌比</div>
@@ -191,6 +243,37 @@ tr:last-child td { border-bottom: none; }
             <div class="up" style="font-size:14px;margin-top:4px;">+3.06%</div>
         </div>
         </div>
+    <div class="mini-note">指数涨跌幅对比</div><div class="sector-list">
+        <div class="sector-row">
+            <span class="sector-name">上证指数</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-up" style="width:23.5%;"></div>
+                </div>
+            </div>
+            <span class="sector-change up">+0.72%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">深证成指</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-up" style="width:72.2%;"></div>
+                </div>
+            </div>
+            <span class="sector-change up">+2.21%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">创业板指</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-up" style="width:100.0%;"></div>
+                </div>
+            </div>
+            <span class="sector-change up">+3.06%</span>
+        </div>
+        </div>
 </div>
 
 <div class="card">
@@ -215,7 +298,83 @@ tr:last-child td { border-bottom: none; }
             </div>
             <span class="sector-change up">+16.00%</span>
         </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">下跌段</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-down" style="width:2.4%;"></div>
+                </div>
+            </div>
+            <span class="sector-change down">-2.00%</span>
         </div>
+        </div>
+</div>
+
+<div class="card">
+    <h2>投资建议</h2>
+    
+    <div class="advice-grid">
+        <div class="advice-item">
+            <div class="label">建议仓位</div>
+            <div class="value">50% ~ 70%</div>
+        </div>
+        <div class="advice-item">
+            <div class="label">风险等级</div>
+            <div class="value neutral">中等</div>
+        </div>
+    </div>
+    <div class="advice-strategy">
+        <strong>操作策略：</strong>顺势适度参与，聚焦主线，但忌追高
+    </div>
+    <div class="advice-dir">
+        <strong>关注方向：</strong><br>
+        <span class="chip">当前市场上涨家数</span><span class="chip">过去一年有</span><span class="chip">下跌段</span>
+    </div>
+    <div class="alert-box alert-warning">
+        <strong>风控提示：</strong>以上为 AI 基于当日数据的量化建议，仅供参考，<strong>不构成投资建议</strong>。请结合自身风险承受能力独立决策。
+    </div>
+    
+</div>
+
+<div class="card">
+    <h2>次日预测展望</h2>
+    
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span class="tag tag-bullish" style="font-size:15px;padding:5px 14px;">次日展望：看多</span>
+        <span class="mini-note">技术面：震荡 · RSI 数据缺失</span>
+    </div>
+    <div class="scenario-grid">
+        <div class="scenario scenario-bull">
+            <div class="s-title">乐观情景</div>
+            <div class="s-range up">+1.0% ~ +2.5%</div>
+            <div class="s-prob">概率 30%</div>
+        </div>
+        <div class="scenario scenario-base">
+            <div class="s-title">基准情景</div>
+            <div class="s-range neutral">+0.3% ~ +1.0%</div>
+            <div class="s-prob">概率 45%</div>
+        </div>
+        <div class="scenario scenario-bear">
+            <div class="s-title">悲观情景</div>
+            <div class="s-range down">-0.5% ~ -1.0%</div>
+            <div class="s-prob">概率 25%</div>
+        </div>
+    </div>
+    
+        <div class="level-row">
+            <span class="level-name">上证指数 收盘 1.0</span>
+            <span>
+                <span class="level-val down">支撑 0.98</span>
+                <span style="color:#ccc;"> | </span>
+                <span class="level-val up">压力 1.01</span>
+            </span>
+        </div>
+        
+    <div class="disclaimer">
+        注：情景区间为模型基于动量、广度、技术面综合推断，关键位参考支撑/压力位估算，实际走势受消息面与资金面影响，仅供参考。
+    </div>
+    
 </div>
 
 <div class="card">
@@ -236,7 +395,7 @@ tr:last-child td { border-bottom: none; }
 </div>
 
 <div class="footer">
-    本报告由 AI 自动生成，仅供参考，不构成投资建议 | 2026-08-01
+    本报告由 AI 自动生成，数据来自公开行情，仅供参考，<strong>不构成任何投资建议</strong>。预测部分基于历史规律推断，存在误差，请独立判断。 | 2026-08-01
 </div>
 </body>
 </html>
