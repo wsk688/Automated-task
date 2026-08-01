@@ -103,6 +103,7 @@ def fetch_all_market_data(target_date: str = None) -> dict:
         "sector_ranking": f"{target_date} A股行业板块涨幅排名、概念板块涨幅排名、涨停家数、跌停家数",
         "fund_flow": f"{target_date} A股北向资金净流入流出、主力资金流向、市场热点新闻",
         "news": f"{target_date} A股市场重大新闻、政策消息、热点事件",
+        "technical": f"{target_date} 上证指数、深证成指、创业板指技术分析：支撑位、压力位、MA5/MA10/MA20均线位置、MACD、RSI、量能变化，给出短线趋势研判",
     }
 
     results = {}

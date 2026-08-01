@@ -1,8 +1,14 @@
 """
 HTML 报告生成模块
-基于市场数据生成完整的A股行情研判报告
+基于市场数据生成完整的 A 股行情研判报告，包含：
+- 指数 / 涨跌家数 / 板块 / 资金新闻
+- 市场情绪仪表盘
+- 投资建议（仓位 / 策略 / 风险 / 方向）
+- 次日预测展望（情景分析 + 关键位）
+全部使用内联 SVG / CSS 可视化，手机端无 CDN 依赖。
 """
 import json
+import math
 import os
 import re
 from datetime import datetime
@@ -85,7 +91,7 @@ tr:last-child td {{ border-bottom: none; }}
 .summary-item .label {{ font-size: 12px; color: #999; margin-bottom: 6px; }}
 .summary-item .value {{ font-size: 20px; font-weight: 700; }}
 .bar-container {{ height: 10px; background: #f0f0f0; border-radius: 5px; overflow: hidden; margin: 10px 0; position: relative; }}
-.bar {{ height: 100%; border-radius: 5px; transition: width 0.3s; }}
+.bar {{ height: 100%; border-radius: 5px; }}
 .bar-up {{ background: linear-gradient(90deg, #ef4444, #dc2626); }}
 .bar-down {{ background: linear-gradient(90deg, #22c55e, #16a34a); }}
 .bar-neutral {{ background: #d4d4d4; }}
@@ -113,6 +119,44 @@ tr:last-child td {{ border-bottom: none; }}
 .section {{ margin-top: 10px; font-size: 13px; color: #555; line-height: 1.8; }}
 .footer {{ text-align: center; font-size: 11px; color: #bbb; margin-top: 24px; padding: 12px 0; }}
 .mini-note {{ font-size: 12px; color: #999; margin-top: 8px; }}
+
+/* 情绪仪表盘 */
+.gauge-wrap {{ display: flex; flex-direction: column; align-items: center; margin: 4px 0 6px; }}
+.gauge-label {{ font-size: 13px; color: #666; margin-top: 2px; }}
+.gauge-score {{ font-size: 26px; font-weight: 800; margin-top: -6px; }}
+
+/* 投资建议 */
+.advice-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }}
+.advice-item {{ background: #fafafa; border-radius: 10px; padding: 12px; text-align: center; }}
+.advice-item .label {{ font-size: 12px; color: #999; margin-bottom: 6px; }}
+.advice-item .value {{ font-size: 16px; font-weight: 700; }}
+.advice-strategy {{ background: #f8fafc; border-radius: 10px; padding: 14px; font-size: 14px; line-height: 1.8; margin-bottom: 12px; }}
+.advice-dir {{ font-size: 13px; color: #555; line-height: 1.9; }}
+.advice-dir .chip {{
+    display: inline-block;
+    background: #fff1f0;
+    color: #dc2626;
+    border: 1px solid #ffccc7;
+    border-radius: 12px;
+    padding: 2px 10px;
+    margin: 2px 4px 0 0;
+    font-size: 12px;
+}}
+
+/* 预测情景 */
+.scenario-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }}
+.scenario {{ border-radius: 10px; padding: 12px 8px; text-align: center; }}
+.scenario-bull {{ background: #fef2f2; }}
+.scenario-base {{ background: #f5f5f5; }}
+.scenario-bear {{ background: #f0fdf4; }}
+.scenario .s-title {{ font-size: 12px; color: #888; margin-bottom: 4px; }}
+.scenario .s-range {{ font-size: 16px; font-weight: 700; }}
+.scenario .s-prob {{ font-size: 11px; color: #999; margin-top: 2px; }}
+.level-row {{ display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }}
+.level-row:last-child {{ border-bottom: none; }}
+.level-name {{ color: #333; font-weight: 500; }}
+.level-val {{ font-weight: 600; }}
+.disclaimer {{ font-size: 11px; color: #bbb; line-height: 1.6; margin-top: 10px; }}
 </style>
 </head>
 <body>
@@ -125,6 +169,11 @@ tr:last-child td {{ border-bottom: none; }}
 <div class="card">
     <h2>市场情绪</h2>
     {sentiment_section}
+    <div class="gauge-wrap">
+        {gauge_svg}
+        <div class="gauge-score {gauge_color_class}">{gauge_score} <span style="font-size:14px;color:#999;font-weight:500;">分</span></div>
+        <div class="gauge-label">综合情绪评分（0 极度悲观 ~ 100 极度乐观）</div>
+    </div>
     <div class="summary-grid">
         <div class="summary-item">
             <div class="label">涨跌比</div>
@@ -149,11 +198,22 @@ tr:last-child td {{ border-bottom: none; }}
 <div class="card">
     <h2>指数表现</h2>
     {index_cards}
+    {index_bar}
 </div>
 
 <div class="card">
     <h2>领涨行业板块</h2>
     {sector_section}
+</div>
+
+<div class="card">
+    <h2>投资建议</h2>
+    {advice_section}
+</div>
+
+<div class="card">
+    <h2>次日预测展望</h2>
+    {forecast_section}
 </div>
 
 <div class="card">
@@ -167,7 +227,7 @@ tr:last-child td {{ border-bottom: none; }}
 </div>
 
 <div class="footer">
-    本报告由 AI 自动生成，仅供参考，不构成投资建议 | {generated_at}
+    本报告由 AI 自动生成，数据来自公开行情，仅供参考，<strong>不构成任何投资建议</strong>。预测部分基于历史规律推断，存在误差，请独立判断。 | {generated_at}
 </div>
 </body>
 </html>"""
@@ -186,7 +246,6 @@ def parse_indices(text: str):
     """从文本提取三大指数数据"""
     indices = []
     names = ["上证指数", "深证成指", "创业板指", "沪深300", "科创50"]
-    # 模式：指数名 + 数字（点位） + 涨跌幅
     for name in names:
         pattern = re.compile(
             rf"{re.escape(name)}[^\d]{{0,20}}([\d,\.]+)[^\d\-\+]{{0,15}}([\-\+]?[\d\.]+)%",
@@ -194,7 +253,6 @@ def parse_indices(text: str):
         )
         m = pattern.search(text)
         if not m:
-            # 再试一个更宽松的
             pattern2 = re.compile(
                 rf"{re.escape(name)}.*?([\d,]{{3,}}(?:\.\d+)?).*?([\-\+]?[\d\.]+)%",
                 re.S
@@ -215,7 +273,6 @@ def parse_breadth(text: str):
     """提取涨跌家数、涨停跌停数"""
     result = {"up": None, "down": None, "limit_up": None, "limit_down": None}
 
-    # 涨跌家数：上涨(上) xxxx 家，下跌(下) xxxx 家
     up_down = re.search(r"[上]涨[\D]*([\d,]+)[\D]*[下]跌[\D]*([\d,]+)", text)
     if up_down:
         result["up"] = int(up_down.group(1).replace(",", ""))
@@ -226,7 +283,6 @@ def parse_breadth(text: str):
             result["up"] = int(up_down2.group(1).replace(",", ""))
             result["down"] = int(up_down2.group(2).replace(",", ""))
 
-    # 涨停跌停
     limit = re.search(r"涨停[\D]*([\d,]+)[\D]*跌停[\D]*([\d,]+)", text)
     if limit:
         result["limit_up"] = int(limit.group(1).replace(",", ""))
@@ -238,7 +294,6 @@ def parse_breadth(text: str):
 def parse_sectors(text: str, top_n: int = 8):
     """提取领涨板块"""
     sectors = []
-    # 尝试匹配 "板块名 + 涨幅 + 数字%"
     pattern = re.compile(r"([\u4e00-\u9fa5]{2,8}(?:板块|概念|行业)?)[^\d\-\+]{0,5}([\-\+]?[\d\.]+)%", re.S)
     seen = set()
     for name, change in pattern.findall(text):
@@ -252,7 +307,6 @@ def parse_sectors(text: str, top_n: int = 8):
         if len(sectors) >= top_n:
             break
 
-    # 如果没找到，尝试按行解析表格格式
     if not sectors:
         for line in text.splitlines():
             parts = re.split(r"\s+", line.strip())
@@ -288,11 +342,110 @@ def parse_news(text: str):
         line = line.strip()
         if not line or len(line) < 10:
             continue
-        # 过滤掉 JSON 和表格线
         if line.startswith("{") or line.startswith("[") or set(line) <= set("-:| "):
             continue
         items.append(line)
     return items[:6]
+
+
+def parse_technical(text: str):
+    """从技术分析文本中提取关键信号"""
+    result = {"support": None, "resistance": None, "trend": None, "rsi": None}
+    if not text:
+        return result
+
+    sup = re.search(r"支撑[位级]?[^\d]{0,12}([\d,\.]+)", text)
+    if sup:
+        result["support"] = _safe_float(sup.group(1))
+    res = re.search(r"压力[位级]?[^\d]{0,12}([\d,\.]+)", text)
+    if res:
+        result["resistance"] = _safe_float(res.group(1))
+    rsi = re.search(r"RSI[^\d]{0,8}([\d\.]+)", text, re.I)
+    if rsi:
+        result["rsi"] = _safe_float(rsi.group(1))
+
+    if any(k in text for k in ["多头", "上行", "向好", "强势", "金叉"]):
+        result["trend"] = "偏多"
+    elif any(k in text for k in ["空头", "下行", "走弱", "弱势", "死叉"]):
+        result["trend"] = "偏空"
+    else:
+        result["trend"] = "震荡"
+    return result
+
+
+def compute_outlook(indices, breadth, technical):
+    """综合打分模型，输出 0-100 评分与展望"""
+    changes = [i["change"] for i in indices if i.get("change") is not None]
+    avg = sum(changes) / len(changes) if changes else 0
+    up = breadth.get("up") or 0
+    down = breadth.get("down") or 0
+    total = up + down
+    br = up / total if total > 0 else 0.5
+    lu = breadth.get("limit_up") or 0
+    ld = breadth.get("limit_down") or 0
+
+    score = 50.0
+    score += avg * 9
+    score += (br - 0.5) * 45
+    score += (lu - ld) * 0.15
+    if technical.get("trend") == "偏多":
+        score += 6
+    elif technical.get("trend") == "偏空":
+        score -= 6
+    rsi = technical.get("rsi")
+    if rsi and rsi > 72:
+        score -= 10   # 超买，回调压力
+    elif rsi and rsi < 28:
+        score += 10   # 超卖，反弹可期
+
+    score = max(3, min(97, score))
+
+    if score >= 62:
+        outlook = "看多"
+    elif score <= 38:
+        outlook = "看空"
+    else:
+        outlook = "震荡"
+    return round(score, 0), outlook
+
+
+def compute_levels(indices, technical):
+    """推算主要指数次日关键参考位"""
+    levels = []
+    for idx in indices[:1]:   # 以上证指数为锚
+        point = _safe_float(idx.get("point"))
+        if not point:
+            continue
+        sup = technical.get("support") or round(point * 0.985, 2)
+        res = technical.get("resistance") or round(point * 1.015, 2)
+        levels.append({"name": idx["name"], "close": point, "support": sup, "resistance": res})
+    return levels
+
+
+def compute_advice(score, outlook, sectors, breadth):
+    """给出仓位 / 策略 / 风险 / 方向建议"""
+    if score >= 62:
+        position = "50% ~ 70%"
+        strategy = "顺势适度参与，聚焦主线，但忌追高"
+        risk = "中等"
+    elif score <= 38:
+        position = "10% ~ 30%"
+        strategy = "轻仓防御，多看少动，等待企稳信号"
+        risk = "偏高"
+    else:
+        position = "30% ~ 50%"
+        strategy = "中性仓位，波段操作为主，留有余地"
+        risk = "中等"
+
+    rec = []
+    if outlook == "看空":
+        rec = ["防御性板块（公用事业 / 医药）", "高股息红利"]
+    if sectors:
+        rec = [s["name"] for s in sectors[:3]] + rec
+    if not rec:
+        rec = ["等待方向明朗"]
+
+    return position, strategy, risk, rec
 
 
 def generate_report(market_data: dict, output_path: str = None) -> str:
@@ -304,6 +457,7 @@ def generate_report(market_data: dict, output_path: str = None) -> str:
     sector_text = data.get("sector_ranking", {}).get("text", "")
     fund_text = data.get("fund_flow", {}).get("text", "")
     news_text = data.get("news", {}).get("text", "")
+    technical_text = data.get("technical", {}).get("text", "")
 
     weekend_note = ""
     today = datetime.now()
@@ -315,14 +469,23 @@ def generate_report(market_data: dict, output_path: str = None) -> str:
     sectors = parse_sectors(sector_text)
     fund_items = parse_fund_flow(fund_text)
     news_items = parse_news(news_text)
+    technical = parse_technical(technical_text)
+
+    score, outlook = compute_outlook(indices, breadth, technical)
+    levels = compute_levels(indices, technical)
+    position, strategy, risk_level, rec_dirs = compute_advice(score, outlook, sectors, breadth)
 
     market_table = _build_index_table(indices)
     index_cards = _build_index_cards(indices)
+    index_bar = _build_index_bar(indices)
     sentiment_section = _build_sentiment(overview_text, breadth)
-    sentiment_text, ratio_class, weekly_stage = _classify_sentiment(breadth, overview_text)
+    sentiment_text, ratio_class, weekly_stage = _classify_sentiment(breadth, overview_text, technical)
     up_down_ratio, limit_stats = _format_breadth(breadth)
     breadth_bar = _build_breadth_bar(breadth)
+    gauge_svg, gauge_color_class = _build_gauge(score, outlook)
     sector_section = _build_sector_chart(sectors)
+    advice_section = _build_advice(position, strategy, risk_level, rec_dirs, outlook)
+    forecast_section = _build_forecast(score, outlook, levels, technical)
     news_section = _build_news_section(fund_items, news_items)
     analysis_section = _build_analysis(indices, breadth, sectors, overview_text)
 
@@ -333,7 +496,11 @@ def generate_report(market_data: dict, output_path: str = None) -> str:
         weekend_note=weekend_note,
         market_table=market_table,
         index_cards=index_cards,
+        index_bar=index_bar,
         sentiment_section=sentiment_section,
+        gauge_svg=gauge_svg,
+        gauge_score=int(score),
+        gauge_color_class=gauge_color_class,
         sentiment=sentiment_text,
         ratio_class=ratio_class,
         up_down_ratio=up_down_ratio,
@@ -341,6 +508,8 @@ def generate_report(market_data: dict, output_path: str = None) -> str:
         weekly_stage=weekly_stage,
         breadth_bar=breadth_bar,
         sector_section=sector_section,
+        advice_section=advice_section,
+        forecast_section=forecast_section,
         news_section=news_section,
         analysis_section=analysis_section,
     )
@@ -355,6 +524,67 @@ def generate_report(market_data: dict, output_path: str = None) -> str:
 
     return html
 
+
+# ----------------------------------------------------------------------------
+# 可视化构件
+# ----------------------------------------------------------------------------
+
+def _build_gauge(score, outlook):
+    """半圆仪表盘（内联 SVG，无外部依赖）"""
+    R = 80
+    cx, cy = 90, 90
+    theta = math.radians(180 * (1 - score / 100))
+    xs = cx + R * math.cos(theta)
+    ys = cy - R * math.sin(theta)
+
+    if outlook == "看多":
+        color, color_class = "#dc2626", "up"
+    elif outlook == "看空":
+        color, color_class = "#16a34a", "down"
+    else:
+        color, color_class = "#f59e0b", "neutral"
+
+    svg = f"""
+    <svg width="180" height="108" viewBox="0 0 180 108" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="#eee" stroke-width="12" stroke-linecap="round"/>
+        <path d="M 10 90 A 80 80 0 0 1 {xs:.1f} {ys:.1f}" fill="none" stroke="{color}" stroke-width="12" stroke-linecap="round"/>
+        <line x1="90" y1="90" x2="{xs:.1f}" y2="{ys:.1f}" stroke="{color}" stroke-width="3"/>
+        <circle cx="90" cy="90" r="5" fill="{color}"/>
+        <text x="12" y="104" font-size="10" fill="#bbb">0 悲观</text>
+        <text x="138" y="104" font-size="10" fill="#bbb">乐观 100</text>
+    </svg>
+    """
+    return svg, color_class
+
+
+def _build_index_bar(indices: list) -> str:
+    """指数涨跌对比条形图（纯 CSS）"""
+    if not indices:
+        return ""
+    rows = ""
+    max_abs = max(abs(i.get("change") or 0) for i in indices) or 1
+    for idx in indices:
+        change = idx.get("change") or 0
+        width = abs(change) / max_abs * 100
+        cls = "up" if change > 0 else "down" if change < 0 else "neutral"
+        bar_cls = "bar-up" if change > 0 else "bar-down" if change < 0 else "bar-neutral"
+        rows += f"""
+        <div class="sector-row">
+            <span class="sector-name">{idx['name']}</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar {bar_cls}" style="width:{width:.1f}%;"></div>
+                </div>
+            </div>
+            <span class="sector-change {cls}">{change:+.2f}%</span>
+        </div>
+        """
+    return f'<div class="mini-note">指数涨跌幅对比</div><div class="sector-list">{rows}</div>'
+
+
+# ----------------------------------------------------------------------------
+# 卡片构件
+# ----------------------------------------------------------------------------
 
 def _build_index_table(indices: list) -> str:
     if not indices:
@@ -420,7 +650,7 @@ def _build_sentiment(overview: str, breadth: dict) -> str:
     return f'<div class="section"><p>{preview}</p></div>'
 
 
-def _classify_sentiment(breadth: dict, overview: str):
+def _classify_sentiment(breadth: dict, overview: str, technical: dict):
     up = breadth.get("up") or 0
     down = breadth.get("down") or 0
     total = up + down
@@ -438,13 +668,17 @@ def _classify_sentiment(breadth: dict, overview: str):
         stage = "<strong>观察中</strong>"
         ratio_class = "neutral"
 
-    # 根据文本修正
     if "大涨" in overview or "强势" in overview:
         sentiment = '<span class="tag tag-bullish">强势</span>'
         stage = "<strong style='color:#dc2626;'>修复</strong>"
     elif "下跌" in overview and ("跌" in overview[:50] or down > up * 1.3):
         sentiment = '<span class="tag tag-bearish">较弱</span>'
         stage = "<strong style='color:#16a34a;'>下跌</strong>"
+
+    if technical.get("trend") == "偏多":
+        stage = "<strong style='color:#dc2626;'>偏多</strong>"
+    elif technical.get("trend") == "偏空":
+        stage = "<strong style='color:#16a34a;'>偏空</strong>"
 
     return sentiment, ratio_class, stage
 
@@ -504,6 +738,90 @@ def _build_sector_chart(sectors: list) -> str:
         </div>
         """
     return f'<div class="sector-list">{rows}</div>'
+
+
+def _build_advice(position, strategy, risk_level, rec_dirs, outlook):
+    chips = "".join(f'<span class="chip">{d}</span>' for d in rec_dirs)
+    out_tag = {"看多": "tag-bullish", "看空": "tag-bearish", "震荡": "tag-neutral"}[outlook]
+    return f"""
+    <div class="advice-grid">
+        <div class="advice-item">
+            <div class="label">建议仓位</div>
+            <div class="value">{position}</div>
+        </div>
+        <div class="advice-item">
+            <div class="label">风险等级</div>
+            <div class="value {('up' if risk_level=='偏高' else 'neutral')}">{risk_level}</div>
+        </div>
+    </div>
+    <div class="advice-strategy">
+        <strong>操作策略：</strong>{strategy}
+    </div>
+    <div class="advice-dir">
+        <strong>关注方向：</strong><br>
+        {chips}
+    </div>
+    <div class="alert-box alert-warning">
+        <strong>风控提示：</strong>以上为 AI 基于当日数据的量化建议，仅供参考，<strong>不构成投资建议</strong>。请结合自身风险承受能力独立决策。
+    </div>
+    """
+
+
+def _build_forecast(score, outlook, levels, technical):
+    if outlook == "看多":
+        bull, base, bear = "+1.0% ~ +2.5%", "+0.3% ~ +1.0%", "-0.5% ~ -1.0%"
+        bull_p, base_p, bear_p = "30%", "45%", "25%"
+    elif outlook == "看空":
+        bull, base, bear = "0% ~ +1.0%", "-0.5% ~ -1.5%", "-1.5% ~ -3.0%"
+        bull_p, base_p, bear_p = "20%", "35%", "45%"
+    else:
+        bull, base, bear = "+0.5% ~ +1.5%", "-0.5% ~ +0.5%", "-1.0% ~ -2.0%"
+        bull_p, base_p, bear_p = "30%", "40%", "30%"
+
+    out_tag = {"看多": "tag-bullish", "看空": "tag-bearish", "震荡": "tag-neutral"}[outlook]
+    rsi_note = f"RSI {int(technical['rsi'])}" if technical.get("rsi") else "RSI 数据缺失"
+    trend_note = technical.get("trend") or "震荡"
+
+    level_rows = ""
+    for lv in levels:
+        level_rows += f"""
+        <div class="level-row">
+            <span class="level-name">{lv['name']} 收盘 {lv['close']}</span>
+            <span>
+                <span class="level-val down">支撑 {lv['support']}</span>
+                <span style="color:#ccc;"> | </span>
+                <span class="level-val up">压力 {lv['resistance']}</span>
+            </span>
+        </div>
+        """
+
+    return f"""
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span class="tag {out_tag}" style="font-size:15px;padding:5px 14px;">次日展望：{outlook}</span>
+        <span class="mini-note">技术面：{trend_note} · {rsi_note}</span>
+    </div>
+    <div class="scenario-grid">
+        <div class="scenario scenario-bull">
+            <div class="s-title">乐观情景</div>
+            <div class="s-range up">{bull}</div>
+            <div class="s-prob">概率 {bull_p}</div>
+        </div>
+        <div class="scenario scenario-base">
+            <div class="s-title">基准情景</div>
+            <div class="s-range neutral">{base}</div>
+            <div class="s-prob">概率 {base_p}</div>
+        </div>
+        <div class="scenario scenario-bear">
+            <div class="s-title">悲观情景</div>
+            <div class="s-range down">{bear}</div>
+            <div class="s-prob">概率 {bear_p}</div>
+        </div>
+    </div>
+    {level_rows}
+    <div class="disclaimer">
+        注：情景区间为模型基于动量、广度、技术面综合推断，关键位参考支撑/压力位估算，实际走势受消息面与资金面影响，仅供参考。
+    </div>
+    """
 
 
 def _build_news_section(fund_items: list, news_items: list) -> str:
@@ -568,6 +886,9 @@ def generate_email_summary(market_data: dict) -> str:
     overview = market_data["data"].get("market_overview", {}).get("text", "")
     indices = parse_indices(overview)
     breadth = parse_breadth(overview)
+    technical_text = market_data["data"].get("technical", {}).get("text", "")
+    technical = parse_technical(technical_text)
+    score, outlook = compute_outlook(indices, breadth, technical)
 
     idx_summary = "\n".join(
         f"{i['name']}: {i.get('point', '--')} ({i['change']:+.2f}%)" if i.get('change') is not None else f"{i['name']}: {i.get('point', '--')}"
@@ -585,6 +906,8 @@ def generate_email_summary(market_data: dict) -> str:
 
 [市场广度]
 涨跌比: {up}:{down}
+
+[次日展望] {outlook}（情绪评分 {int(score)}/100）
 
 完整报告请点击下方链接查看。
 
@@ -607,6 +930,7 @@ if __name__ == "__main__":
                 "sector_ranking": {"text": "领涨板块：电气设备 4.35%，传媒 3.89%，证券 3.67%，计算机 3.21%，通信 2.98%。"},
                 "fund_flow": {"text": "北向资金净流入 56.32 亿元，主力资金净流入 128.5 亿元。金融、科技、新能源获资金青睐。"},
                 "news": {"text": "1. 政策面出台促进消费信贷措施。2. 美联储利率保持不变，海外市场回暖。3. 国内重点企业中报预告集中披露。"},
+                "technical": {"text": "上证指数处于多头排列，MA5/MA10/MA20 向上发散，MACD 金叉，RSI 62 中性偏强。支撑位 3780，压力位 3900。量能温和放大，短线趋势向好。"},
             },
         }
     output = sys.argv[2] if len(sys.argv) > 2 else "report.html"
