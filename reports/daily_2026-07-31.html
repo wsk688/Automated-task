@@ -22,176 +22,225 @@ body {
     margin-bottom: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
-h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #555; }
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+h2 { font-size: 17px; font-weight: 600; margin-bottom: 14px; color: #222; display: flex; align-items: center; }
+h2::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: #378add;
+    border-radius: 2px;
+    margin-right: 8px;
+}
 .subtitle { font-size: 13px; color: #999; margin-bottom: 16px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { padding: 8px 10px; text-align: center; border-bottom: 1px solid #eee; }
-th { background: #f8f9fa; font-weight: 500; color: #666; font-size: 12px; }
+.holiday-badge {
+    display: inline-block;
+    background: #f5f5f5;
+    color: #888;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 8px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 10px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+th { background: #fafafa; font-weight: 500; color: #666; font-size: 12px; }
+tr:last-child td { border-bottom: none; }
 .up { color: #dc2626; font-weight: 600; }
 .down { color: #16a34a; font-weight: 600; }
+.neutral { color: #666; }
 .tag {
     display: inline-block;
-    padding: 2px 10px;
+    padding: 3px 10px;
     border-radius: 12px;
     font-size: 12px;
     font-weight: 500;
-    margin-right: 6px;
 }
 .tag-bullish { background: #fef2f2; color: #dc2626; }
 .tag-bearish { background: #f0fdf4; color: #16a34a; }
-.tag-neutral { background: #f5f5f5; color: #888; }
-.bar-container { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; margin: 8px 0; }
-.bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
-.bar-up { background: #dc2626; }
-.bar-down { background: #16a34a; }
+.tag-neutral { background: #f5f5f5; color: #666; }
 .summary-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    margin-top: 12px;
+    margin-top: 14px;
 }
 .summary-item {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 12px;
+    background: #fafafa;
+    border-radius: 10px;
+    padding: 14px 10px;
     text-align: center;
 }
-.summary-item .label { font-size: 12px; color: #999; margin-bottom: 4px; }
-.summary-item .value { font-size: 18px; font-weight: 600; }
+.summary-item .label { font-size: 12px; color: #999; margin-bottom: 6px; }
+.summary-item .value { font-size: 20px; font-weight: 700; }
+.bar-container { height: 10px; background: #f0f0f0; border-radius: 5px; overflow: hidden; margin: 10px 0; position: relative; }
+.bar { height: 100%; border-radius: 5px; transition: width 0.3s; }
+.bar-up { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.bar-down { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.bar-neutral { background: #d4d4d4; }
+.breadth-labels { display: flex; justify-content: space-between; font-size: 12px; color: #999; }
+.sector-list { margin-top: 10px; }
+.sector-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+.sector-row:last-child { border-bottom: none; }
+.sector-name { color: #333; font-weight: 500; }
+.sector-change { font-weight: 600; min-width: 60px; text-align: right; }
+.sector-bar-wrap { flex: 1; margin: 0 12px; }
+.news-list { margin-top: 8px; }
+.news-item { padding: 10px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; color: #444; }
+.news-item:last-child { border-bottom: none; }
+.news-item strong { color: #222; }
 .alert-box {
-    padding: 12px 16px;
+    padding: 12px 14px;
     border-radius: 8px;
     margin-top: 12px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.7;
 }
-.alert-warning { background: #fef9e7; border-left: 3px solid #f0ad4e; color: #856404; }
-.alert-info { background: #e8f4fd; border-left: 3px solid #378add; color: #0c447c; }
+.alert-warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #92400e; }
+.alert-info { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e40af; }
 .alert-danger { background: #fef2f2; border-left: 3px solid #dc2626; color: #991b1b; }
-.section { margin-top: 8px; }
-.section p { font-size: 13px; margin-bottom: 8px; }
-.footer {
-    text-align: center;
-    font-size: 11px;
-    color: #bbb;
-    margin-top: 20px;
-    padding: 10px 0;
-}
-hr { border: none; border-top: 1px solid #eee; margin: 16px 0; }
+.section { margin-top: 10px; font-size: 13px; color: #555; line-height: 1.8; }
+.footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 24px; padding: 12px 0; }
+.mini-note { font-size: 12px; color: #999; margin-top: 8px; }
 </style>
 </head>
 <body>
 <div class="card">
     <h1>A股行情日报</h1>
-    <div class="subtitle">报告生成: 2026-08-01 | 数据来源: 2026-07-31 <span class='tag tag-neutral'>今日休市</span></div>
+    <div class="subtitle">报告生成: 2026-08-01 | 数据来源: 2026-07-31<span class="holiday-badge">今日休市</span></div>
     
-    <p style="font-size:13px;color:#666;margin-bottom:12px;">以下基于上一交易日市场数据汇总：</p>
-    <div class="alert-box alert-info">
-        {
-  "seParams": {},
-  "requestId": "a9d29ed9703e449cad60961bc66b28e1",
-  "apiData": {
-    "apiRecall": [
-      {
-        "links": {
-          "399001.SZ": {
-            "H5": "https://lily.tencent.com/dr/middle?url=https%3A%2F%2Fgu.qq.com%2Fsz399001&request_id=60ff0d3a1cc446f4ba0220bccc421765"
-          },
-          "399006.SZ": {
-            "H5": "https://lily.tencent.com/dr/middle?url=https%3A%2F%2Fgu.qq.com%2Fsz399006&request_id=60ff0d3a1cc446f4ba0220bccc421765"
-          },
-          "00000...
-    </div>
+    <table>
+        <thead>
+            <tr><th>指数</th><th>收盘</th><th>涨跌幅</th></tr>
+        </thead>
+        <tbody>
+            
+        <tr>
+            <td><strong>上证指数</strong></td>
+            <td>000001</td>
+            <td class="up">+0.72% ↑</td>
+        </tr>
+        
+        <tr>
+            <td><strong>深证成指</strong></td>
+            <td>399001</td>
+            <td class="up">+2.21% ↑</td>
+        </tr>
+        
+        <tr>
+            <td><strong>创业板指</strong></td>
+            <td>399006</td>
+            <td class="up">+3.06% ↑</td>
+        </tr>
+        
+        </tbody>
+    </table>
     
 </div>
 
 <div class="card">
     <h2>市场情绪</h2>
-    <div class="section"><p>{
-  "seParams": {},
-  "requestId": "a9d29ed9703e449cad60961bc66b28e1",
-  "apiData": {
-    "apiRecall": [
-      {
-        "links": {
-          "399001.SZ": {
-            "H5": "https://lily.tencent.com/dr/middle?url=https%3A%2F%2Fgu.qq.com%2Fsz399001&request_id=60ff0d3a1cc446f4ba0220bccc421765"
-     </p></div>
+    <div class="section"><p>市场：A股指数；
+
+股票名称：上证指数；股票代码：000001.SH；
+
+从2026-07-31到2026-07-31的历史行情数据（前复权数据计算）
+
+| 日期 | 开盘价(点) | 收盘价/最新价格(点) | 单日涨跌幅(%) | 成交量(股) | 成交额(元) | 最高点(点) | 最低点(点) | 换手率(%) |
+| :---: | :---: |...</p></div>
     <div class="summary-grid">
         <div class="summary-item">
             <div class="label">涨跌比</div>
-            <div class="value">--</div>
+            <div class="value neutral">--</div>
         </div>
         <div class="summary-item">
             <div class="label">涨停 / 跌停</div>
-            <div class="value">--</div>
+            <div class="value">-- / --</div>
         </div>
         <div class="summary-item">
             <div class="label">情绪判定</div>
-            <div class="value"><span class="tag tag-bullish">修复</span></div>
+            <div class="value"><span class="tag tag-neutral">震荡</span></div>
         </div>
         <div class="summary-item">
             <div class="label">周线阶段</div>
-            <div class="value">观察中</div>
+            <div class="value"><strong>观察中</strong></div>
         </div>
     </div>
+    
 </div>
 
 <div class="card">
-    <h2>行业板块</h2>
-    <div class="section"><p>{
-  "seParams": {},
-  "requestId": "6b9168dd3eff4b70898e36f71558ae1d",
-  "apiData": {
-    "apiRecall": [
-      {
-        "tag": "大盘数据库",
-        "type": "A股沪深板块当日交易排行榜",
-        "content": "| 排行类型 | 行业名 | 行业代码 | 最新价 | 涨跌金额(元) | 涨跌幅（%） | 5分钟涨速 | 量比 | 换手率% | 5日涨跌幅 | 20日涨跌幅 | 60日涨跌幅 | 年初至今涨跌幅 | 52周涨跌幅 | 涨幅领先股票代码 | 涨幅领先的股票名 | 涨幅领先股票最新价（元） | 涨幅领先股票涨跌金额（元） | 涨幅领先股票的涨跌幅% |\n| :---: | :---: | :---: | :---</p></div>
+    <h2>指数表现</h2>
+    <div class="summary-grid">
+        <div class="summary-item" style="margin-bottom:10px;">
+            <div class="label">上证指数</div>
+            <div class="value">000001</div>
+            <div class="up" style="font-size:14px;margin-top:4px;">+0.72%</div>
+        </div>
+        
+        <div class="summary-item" style="margin-bottom:10px;">
+            <div class="label">深证成指</div>
+            <div class="value">399001</div>
+            <div class="up" style="font-size:14px;margin-top:4px;">+2.21%</div>
+        </div>
+        
+        <div class="summary-item" style="margin-bottom:10px;">
+            <div class="label">创业板指</div>
+            <div class="value">399006</div>
+            <div class="up" style="font-size:14px;margin-top:4px;">+3.06%</div>
+        </div>
+        </div>
+</div>
+
+<div class="card">
+    <h2>领涨行业板块</h2>
+    <div class="sector-list">
+        <div class="sector-row">
+            <span class="sector-name">当前市场上涨家数</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-up" style="width:100.0%;"></div>
+                </div>
+            </div>
+            <span class="sector-change up">+84.00%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">过去一年有</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-up" style="width:19.0%;"></div>
+                </div>
+            </div>
+            <span class="sector-change up">+16.00%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">下跌段</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-down" style="width:2.4%;"></div>
+                </div>
+            </div>
+            <span class="sector-change down">-2.00%</span>
+        </div>
+        </div>
 </div>
 
 <div class="card">
     <h2>资金与新闻</h2>
-    <div class="section"><p>{
-  "seParams": {},
-  "requestId": "6cb15e537e104857afa012ee1603a120",
-  "apiData": {
-    "apiRecall": [],
-    "entity": [
-      {
-        "code": "000300.SH",
-        "name": "沪深300"
-      },
-      {
-        "code": "930050.CS",
-        "name": "中证A50"
-      },
-      {
-        "code": "399905.SZ",
-        "name": "中证500"
-      },
-      {
-        "code": "399006.SZ",
-        "name": "创业板指"
-      },
-      {
-        "code": "000001.SH",
-        "name": "上证指数"
-      },
-      {
-        "code": "0006</p></div>
+    <div class="news-list"><div class="news-item">• 当日资金流向</div><div class="news-item">• - 昨日融资融券总结: --</div></div>
 </div>
 
 <div class="card">
     <h2>研判与建议</h2>
     
     <div class="section">
-        <p>综合以上数据，AI 研判如下：</p>
+        <p>领涨方向：<strong>当前市场上涨家数</strong>（+84.00%），关注其持续性。<br>主要指数收盘偏强，短线可适度参与。</p>
     </div>
     <div class="alert-box alert-warning">
-        本报告为自动化生成，详细版请参考桌面端 WorkBuddy 生成的完整分析报告。<br>
-        每日 12:10 自动更新。
+        <strong>风控提示：</strong>本报告为 AI 自动化生成，仅供参考，不构成投资建议。每日 12:10 自动更新。
     </div>
     
 </div>
