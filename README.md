@@ -7,7 +7,7 @@
 ```
 GitHub Actions（云端）每天 12:10 触发
   ↓
-拉取 NeoData 行情数据
+拉取真实行情（腾讯财经指数 + 东方财富涨跌家数/板块/资金）
   ↓
 生成 HTML 分析报告
   ↓
@@ -15,6 +15,11 @@ GitHub Actions（云端）每天 12:10 触发
   ↓
 报告部署到 GitHub Pages（手机浏览器可查看）
 ```
+
+> **数据源说明**：本项目直接使用**公开行情接口**，无需任何 API token / 密钥：
+> - 指数（上证 / 深证 / 创业板 / 沪深300 / 科创50）：腾讯财经 `qt.gtimg.cn` 实时接口
+> - 涨跌家数 / 涨停跌停 / 行业板块排行 / 主力资金流入个股：东方财富 `push2` 公开接口
+> - 任一行情源短时不可用时自动降级（指数仍来自腾讯），不会因单点故障导致任务失败。
 
 ## 三步部署
 
@@ -55,11 +60,10 @@ git push -u origin main
 
 在 GitHub 仓库页面：**Settings → Secrets and variables → Actions → New repository secret**
 
-添加以下 4 个 Secrets：
+添加以下 3 个 Secrets（**行情数据无需任何 token**，只需邮箱配置）：
 
 | Secret 名称 | 值 | 说明 |
 |-------------|-----|------|
-| `NEODATA_TOKEN` | `tk_9vRRzRpjcvLHrH62jlGNEsVv3uAj2zxr` | NeoData API 密钥 |
 | `QQ_EMAIL` | `1876636858@qq.com` | 发件 QQ 邮箱 |
 | `QQ_EMAIL_AUTH` | ⚠️ 见下方 | QQ 邮箱 SMTP 授权码 |
 | `TO_EMAIL` | `1876636858@qq.com` | 收件邮箱 |
@@ -97,7 +101,7 @@ git push -u origin main
 
 - 每天 **12:10** 执行（仅工作日）
 - 周末和节假日跳过，周一分析上周五数据
-- 可在 `.github/workflows/daily.yml` 第 6 行修改 cron 表达式
+- 可在 `.github/workflows/daily.yml` 中修改 cron 表达式（默认 `10 4 * * 1-5`，即北京时间工作日 12:10）
 
 ## 文件说明
 

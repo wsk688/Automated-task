@@ -1,1 +1,2 @@
-requests>=2.31.0
+# 本项目的取数与报告生成仅依赖 Python 标准库（urllib / ssl / json / smtplib），
+# 无需安装任何第三方包。保留此文件仅为兼容原 workflow 的声明习惯。

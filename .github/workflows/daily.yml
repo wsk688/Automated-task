@@ -24,12 +24,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 安装依赖
-        run: pip install -r requirements.txt
-
       - name: 拉取数据并生成报告
-        env:
-          NEODATA_TOKEN: ${{ secrets.NEODATA_TOKEN }}
         run: |
           mkdir -p reports
           python -c "

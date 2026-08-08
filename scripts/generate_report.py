@@ -1,11 +1,9 @@
 """
-HTML 报告生成模块
-基于市场数据生成完整的 A 股行情研判报告，包含：
-- 指数 / 涨跌家数 / 板块 / 资金新闻
-- 市场情绪仪表盘
-- 投资建议（仓位 / 策略 / 风险 / 方向）
-- 次日预测展望（情景分析 + 关键位）
-全部使用内联 SVG / CSS 可视化，手机端无 CDN 依赖。
+HTML 报告生成模块（消费结构化真实行情）
+=================================================
+输入：fetch_data.fetch_all_market_data() 返回的结构化 dict
+输出：自包含 HTML（内联 SVG/CSS，无外部 CDN 依赖，手机端友好）
+包含：指数 / 涨跌家数 / 板块 / 资金动向 / 涨停股 / 情绪仪表盘 / 投资建议 / 次日展望
 """
 import json
 import math
@@ -162,13 +160,13 @@ tr:last-child td {{ border-bottom: none; }}
 <body>
 <div class="card">
     <h1>A股行情日报</h1>
-    <div class="subtitle">报告生成: {generated_at} | 数据来源: {target_date}{weekend_note}</div>
+    <div class="subtitle">数据日期: {target_date} | 生成: {generated_at}{weekend_note}</div>
+    {degrade_note}
     {market_table}
 </div>
 
 <div class="card">
     <h2>市场情绪</h2>
-    {sentiment_section}
     <div class="gauge-wrap">
         {gauge_svg}
         <div class="gauge-score {gauge_color_class}">{gauge_score} <span style="font-size:14px;color:#999;font-weight:500;">分</span></div>
@@ -207,6 +205,11 @@ tr:last-child td {{ border-bottom: none; }}
 </div>
 
 <div class="card">
+    <h2>资金动向</h2>
+    {fund_section}
+</div>
+
+<div class="card">
     <h2>投资建议</h2>
     {advice_section}
 </div>
@@ -217,187 +220,37 @@ tr:last-child td {{ border-bottom: none; }}
 </div>
 
 <div class="card">
-    <h2>资金与新闻</h2>
-    {news_section}
-</div>
-
-<div class="card">
     <h2>研判与建议</h2>
     {analysis_section}
 </div>
 
 <div class="footer">
-    本报告由 AI 自动生成，数据来自公开行情，仅供参考，<strong>不构成任何投资建议</strong>。预测部分基于历史规律推断，存在误差，请独立判断。 | {generated_at}
+    本报告由 AI 自动生成，数据来自公开行情（腾讯财经 / 东方财富），仅供参考，<strong>不构成任何投资建议</strong>。预测部分基于历史规律推断，存在误差，请独立判断。 | {generated_at}
 </div>
 </body>
 </html>"""
 
 
-def _safe_float(text):
-    if text is None:
-        return None
-    try:
-        return float(str(text).replace(",", "").replace("%", "").strip())
-    except ValueError:
-        return None
+def _safe(v):
+    return v if isinstance(v, (int, float)) else None
 
 
-def parse_indices(text: str):
-    """从文本提取三大指数数据"""
-    indices = []
-    names = ["上证指数", "深证成指", "创业板指", "沪深300", "科创50"]
-    for name in names:
-        pattern = re.compile(
-            rf"{re.escape(name)}[^\d]{{0,20}}([\d,\.]+)[^\d\-\+]{{0,15}}([\-\+]?[\d\.]+)%",
-            re.S
-        )
-        m = pattern.search(text)
-        if not m:
-            pattern2 = re.compile(
-                rf"{re.escape(name)}.*?([\d,]{{3,}}(?:\.\d+)?).*?([\-\+]?[\d\.]+)%",
-                re.S
-            )
-            m = pattern2.search(text)
-        if m:
-            point = m.group(1).replace(",", "")
-            change = m.group(2)
-            indices.append({
-                "name": name,
-                "point": point,
-                "change": _safe_float(change),
-            })
-    return indices
-
-
-def parse_breadth(text: str):
-    """提取涨跌家数、涨停跌停数"""
-    result = {"up": None, "down": None, "limit_up": None, "limit_down": None}
-
-    up_down = re.search(r"[上]涨[\D]*([\d,]+)[\D]*[下]跌[\D]*([\d,]+)", text)
-    if up_down:
-        result["up"] = int(up_down.group(1).replace(",", ""))
-        result["down"] = int(up_down.group(2).replace(",", ""))
-    else:
-        up_down2 = re.search(r"([\d,]+)[\D]*家上涨[\D]*([\d,]+)[\D]*家下跌", text)
-        if up_down2:
-            result["up"] = int(up_down2.group(1).replace(",", ""))
-            result["down"] = int(up_down2.group(2).replace(",", ""))
-
-    limit = re.search(r"涨停[\D]*([\d,]+)[\D]*跌停[\D]*([\d,]+)", text)
-    if limit:
-        result["limit_up"] = int(limit.group(1).replace(",", ""))
-        result["limit_down"] = int(limit.group(2).replace(",", ""))
-
-    return result
-
-
-def parse_sectors(text: str, top_n: int = 8):
-    """提取领涨板块"""
-    sectors = []
-    pattern = re.compile(r"([\u4e00-\u9fa5]{2,8}(?:板块|概念|行业)?)[^\d\-\+]{0,5}([\-\+]?[\d\.]+)%", re.S)
-    seen = set()
-    for name, change in pattern.findall(text):
-        key = name.replace("板块", "").replace("概念", "").replace("行业", "")
-        if key in seen:
-            continue
-        seen.add(key)
-        val = _safe_float(change)
-        if val is not None and val != 0:
-            sectors.append({"name": name.replace("板块", "").replace("概念", "").replace("行业", ""), "change": val})
-        if len(sectors) >= top_n:
-            break
-
-    if not sectors:
-        for line in text.splitlines():
-            parts = re.split(r"\s+", line.strip())
-            if len(parts) >= 2:
-                change = _safe_float(parts[-1])
-                if change and abs(change) > 1:
-                    name = parts[0]
-                    if len(name) >= 2 and "排名" not in name:
-                        sectors.append({"name": name, "change": change})
-            if len(sectors) >= top_n:
-                break
-
-    return sorted(sectors, key=lambda x: abs(x["change"]), reverse=True)[:top_n]
-
-
-def parse_fund_flow(text: str):
-    """提取资金流向关键句"""
-    sentences = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if any(k in line for k in ["流入", "流出", "资金", "主力", "北向", "融资", "买入", "净流入"]):
-            if len(line) < 200:
-                sentences.append(line)
-    return sentences[:6]
-
-
-def parse_news(text: str):
-    """提取新闻要点"""
-    items = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or len(line) < 10:
-            continue
-        if line.startswith("{") or line.startswith("[") or set(line) <= set("-:| "):
-            continue
-        items.append(line)
-    return items[:6]
-
-
-def parse_technical(text: str):
-    """从技术分析文本中提取关键信号"""
-    result = {"support": None, "resistance": None, "trend": None, "rsi": None}
-    if not text:
-        return result
-
-    sup = re.search(r"支撑[位级]?[^\d]{0,12}([\d,\.]+)", text)
-    if sup:
-        result["support"] = _safe_float(sup.group(1))
-    res = re.search(r"压力[位级]?[^\d]{0,12}([\d,\.]+)", text)
-    if res:
-        result["resistance"] = _safe_float(res.group(1))
-    rsi = re.search(r"RSI[^\d]{0,8}([\d\.]+)", text, re.I)
-    if rsi:
-        result["rsi"] = _safe_float(rsi.group(1))
-
-    if any(k in text for k in ["多头", "上行", "向好", "强势", "金叉"]):
-        result["trend"] = "偏多"
-    elif any(k in text for k in ["空头", "下行", "走弱", "弱势", "死叉"]):
-        result["trend"] = "偏空"
-    else:
-        result["trend"] = "震荡"
-    return result
-
-
-def compute_outlook(indices, breadth, technical):
-    """综合打分模型，输出 0-100 评分与展望"""
-    changes = [i["change"] for i in indices if i.get("change") is not None]
-    avg = sum(changes) / len(changes) if changes else 0
-    up = breadth.get("up") or 0
-    down = breadth.get("down") or 0
-    total = up + down
-    br = up / total if total > 0 else 0.5
-    lu = breadth.get("limit_up") or 0
-    ld = breadth.get("limit_down") or 0
+def compute_outlook(indices, breadth):
+    """综合打分：指数平均涨跌 + 涨跌家数比例 + 涨停/跌停差。"""
+    changes = [i["change_pct"] for i in indices if _safe(i.get("change_pct")) is not None]
+    avg = sum(changes) / len(changes) if changes else 0.0
 
     score = 50.0
     score += avg * 9
-    score += (br - 0.5) * 45
-    score += (lu - ld) * 0.15
-    if technical.get("trend") == "偏多":
-        score += 6
-    elif technical.get("trend") == "偏空":
-        score -= 6
-    rsi = technical.get("rsi")
-    if rsi and rsi > 72:
-        score -= 10   # 超买，回调压力
-    elif rsi and rsi < 28:
-        score += 10   # 超卖，反弹可期
-
+    if breadth and breadth.get("total"):
+        up = breadth["up"] or 0
+        down = breadth["down"] or 0
+        total = up + down
+        br = up / total if total else 0.5
+        score += (br - 0.5) * 45
+        lu = breadth.get("limit_up") or 0
+        ld = breadth.get("limit_down") or 0
+        score += (lu - ld) * 0.15
     score = max(3, min(97, score))
 
     if score >= 62:
@@ -406,24 +259,24 @@ def compute_outlook(indices, breadth, technical):
         outlook = "看空"
     else:
         outlook = "震荡"
-    return round(score, 0), outlook
+    return round(score), outlook
 
 
-def compute_levels(indices, technical):
-    """推算主要指数次日关键参考位"""
+def compute_levels(indices):
     levels = []
-    for idx in indices[:1]:   # 以上证指数为锚
-        point = _safe_float(idx.get("point"))
+    for idx in indices[:1]:  # 以上证为锚
+        point = _safe(idx.get("price"))
         if not point:
             continue
-        sup = technical.get("support") or round(point * 0.985, 2)
-        res = technical.get("resistance") or round(point * 1.015, 2)
-        levels.append({"name": idx["name"], "close": point, "support": sup, "resistance": res})
+        levels.append({
+            "name": idx["name"], "close": point,
+            "support": round(point * 0.985, 2),
+            "resistance": round(point * 1.015, 2),
+        })
     return levels
 
 
 def compute_advice(score, outlook, sectors, breadth):
-    """给出仓位 / 策略 / 风险 / 方向建议"""
     if score >= 62:
         position = "50% ~ 70%"
         strategy = "顺势适度参与，聚焦主线，但忌追高"
@@ -439,78 +292,79 @@ def compute_advice(score, outlook, sectors, breadth):
 
     rec = []
     if outlook == "看空":
-        rec = ["防御性板块（公用事业 / 医药）", "高股息红利"]
+        rec = ["防御性板块（公用事业/医药）", "高股息红利"]
     if sectors:
         rec = [s["name"] for s in sectors[:3]] + rec
     if not rec:
         rec = ["等待方向明朗"]
-
     return position, strategy, risk, rec
 
 
 def generate_report(market_data: dict, output_path: str = None) -> str:
     target_date = market_data["target_date"]
     generated_at = market_data["generated_at"]
-    data = market_data["data"]
+    d = market_data["data"]
 
-    overview_text = data.get("market_overview", {}).get("text", "")
-    sector_text = data.get("sector_ranking", {}).get("text", "")
-    fund_text = data.get("fund_flow", {}).get("text", "")
-    news_text = data.get("news", {}).get("text", "")
-    technical_text = data.get("technical", {}).get("text", "")
+    indices = d.get("indices") or []
+    breadth = d.get("breadth")
+    sectors = d.get("sectors") or []
+    inflow = d.get("main_inflow_stocks") or []
+    limitup = d.get("limitup_stocks") or []
+    em_ok = d.get("em_ok", True)
 
     weekend_note = ""
-    today = datetime.now()
-    if today.weekday() >= 5:
-        weekend_note = '<span class="holiday-badge">今日休市</span>'
+    if not market_data.get("is_trading_day"):
+        weekend_note = '<span class="holiday-badge">非交易日</span>'
 
-    indices = parse_indices(overview_text)
-    breadth = parse_breadth(overview_text + "\n" + sector_text)
-    sectors = parse_sectors(sector_text)
-    fund_items = parse_fund_flow(fund_text)
-    news_items = parse_news(news_text)
-    technical = parse_technical(technical_text)
+    degrade_note = ""
+    if not em_ok:
+        degrade_note = (
+            '<div class="alert-box alert-warning">'
+            '⚠️ 涨跌家数 / 板块 / 资金数据暂时获取失败（行情源连接异常），'
+            '以下仅展示指数实时数据。明日将自动重试。</div>'
+        )
 
-    score, outlook = compute_outlook(indices, breadth, technical)
-    levels = compute_levels(indices, technical)
+    score, outlook = compute_outlook(indices, breadth)
+    levels = compute_levels(indices)
     position, strategy, risk_level, rec_dirs = compute_advice(score, outlook, sectors, breadth)
 
     market_table = _build_index_table(indices)
     index_cards = _build_index_cards(indices)
     index_bar = _build_index_bar(indices)
-    sentiment_section = _build_sentiment(overview_text, breadth)
-    sentiment_text, ratio_class, weekly_stage = _classify_sentiment(breadth, overview_text, technical)
+
+    sentiment, ratio_class, weekly_stage = _classify_sentiment(breadth)
     up_down_ratio, limit_stats = _format_breadth(breadth)
     breadth_bar = _build_breadth_bar(breadth)
+
     gauge_svg, gauge_color_class = _build_gauge(score, outlook)
     sector_section = _build_sector_chart(sectors)
+    fund_section = _build_fund_section(inflow, limitup)
     advice_section = _build_advice(position, strategy, risk_level, rec_dirs, outlook)
-    forecast_section = _build_forecast(score, outlook, levels, technical)
-    news_section = _build_news_section(fund_items, news_items)
-    analysis_section = _build_analysis(indices, breadth, sectors, overview_text)
+    forecast_section = _build_forecast(score, outlook, levels)
+    analysis_section = _build_analysis(indices, breadth, sectors, outlook)
 
     html = REPORT_TEMPLATE.format(
         report_date=target_date,
         generated_at=generated_at,
         target_date=target_date,
         weekend_note=weekend_note,
+        degrade_note=degrade_note,
         market_table=market_table,
         index_cards=index_cards,
         index_bar=index_bar,
-        sentiment_section=sentiment_section,
         gauge_svg=gauge_svg,
         gauge_score=int(score),
         gauge_color_class=gauge_color_class,
-        sentiment=sentiment_text,
+        sentiment=sentiment,
         ratio_class=ratio_class,
         up_down_ratio=up_down_ratio,
         limit_stats=limit_stats,
         weekly_stage=weekly_stage,
         breadth_bar=breadth_bar,
         sector_section=sector_section,
+        fund_section=fund_section,
         advice_section=advice_section,
         forecast_section=forecast_section,
-        news_section=news_section,
         analysis_section=analysis_section,
     )
 
@@ -528,9 +382,7 @@ def generate_report(market_data: dict, output_path: str = None) -> str:
 # ----------------------------------------------------------------------------
 # 可视化构件
 # ----------------------------------------------------------------------------
-
 def _build_gauge(score, outlook):
-    """半圆仪表盘（内联 SVG，无外部依赖）"""
     R = 80
     cx, cy = 90, 90
     theta = math.radians(180 * (1 - score / 100))
@@ -558,13 +410,12 @@ def _build_gauge(score, outlook):
 
 
 def _build_index_bar(indices: list) -> str:
-    """指数涨跌对比条形图（纯 CSS）"""
     if not indices:
         return ""
     rows = ""
-    max_abs = max(abs(i.get("change") or 0) for i in indices) or 1
+    max_abs = max(abs(i.get("change_pct") or 0) for i in indices) or 1
     for idx in indices:
-        change = idx.get("change") or 0
+        change = idx.get("change_pct") or 0
         width = abs(change) / max_abs * 100
         cls = "up" if change > 0 else "down" if change < 0 else "neutral"
         bar_cls = "bar-up" if change > 0 else "bar-down" if change < 0 else "bar-neutral"
@@ -582,42 +433,30 @@ def _build_index_bar(indices: list) -> str:
     return f'<div class="mini-note">指数涨跌幅对比</div><div class="sector-list">{rows}</div>'
 
 
-# ----------------------------------------------------------------------------
-# 卡片构件
-# ----------------------------------------------------------------------------
-
 def _build_index_table(indices: list) -> str:
     if not indices:
         return '<div class="alert-box alert-info">暂无指数数据，请检查数据来源。</div>'
-
     rows = ""
     for idx in indices:
-        change = idx.get("change")
+        change = idx.get("change_pct")
         cls = "neutral"
         arrow = ""
         if change is not None:
             if change > 0:
-                cls = "up"
-                arrow = "↑"
+                cls = "up"; arrow = "↑"
             elif change < 0:
-                cls = "down"
-                arrow = "↓"
+                cls = "down"; arrow = "↓"
         rows += f"""
         <tr>
             <td><strong>{idx['name']}</strong></td>
-            <td>{idx.get('point', '--')}</td>
+            <td>{idx.get('price', '--')}</td>
             <td class="{cls}">{change if change is None else f"{change:+.2f}%"} {arrow}</td>
         </tr>
         """
-
     return f"""
     <table>
-        <thead>
-            <tr><th>指数</th><th>收盘</th><th>涨跌幅</th></tr>
-        </thead>
-        <tbody>
-            {rows}
-        </tbody>
+        <thead><tr><th>指数</th><th>点位</th><th>涨跌幅</th></tr></thead>
+        <tbody>{rows}</tbody>
     </table>
     """
 
@@ -625,87 +464,59 @@ def _build_index_table(indices: list) -> str:
 def _build_index_cards(indices: list) -> str:
     if not indices:
         return "<p class='mini-note'>暂无详细指数数据</p>"
-
     cards = ""
     for idx in indices[:3]:
-        change = idx.get("change")
+        change = idx.get("change_pct")
         cls = "neutral"
         if change is not None:
             cls = "up" if change > 0 else "down" if change < 0 else "neutral"
         cards += f"""
         <div class="summary-item" style="margin-bottom:10px;">
             <div class="label">{idx['name']}</div>
-            <div class="value">{idx.get('point', '--')}</div>
+            <div class="value">{idx.get('price', '--')}</div>
             <div class="{cls}" style="font-size:14px;margin-top:4px;">{change if change is None else f"{change:+.2f}%"}</div>
         </div>
         """
-
     return f'<div class="summary-grid">{cards}</div>'
 
 
-def _build_sentiment(overview: str, breadth: dict) -> str:
-    preview = overview[:180] + "..." if len(overview) > 180 else overview
-    if not preview:
-        preview = "基于当日市场数据综合判断。"
-    return f'<div class="section"><p>{preview}</p></div>'
-
-
-def _classify_sentiment(breadth: dict, overview: str, technical: dict):
-    up = breadth.get("up") or 0
-    down = breadth.get("down") or 0
+def _classify_sentiment(breadth: dict):
+    if not breadth or not breadth.get("total"):
+        return '<span class="tag tag-neutral">数据缺失</span>', "neutral", "观察中"
+    up = breadth["up"] or 0
+    down = breadth["down"] or 0
     total = up + down
-
     if total > 0 and up / total > 0.65:
-        sentiment = '<span class="tag tag-bullish">偏多</span>'
-        stage = "<strong style='color:#dc2626;'>修复</strong>"
-        ratio_class = "up"
+        return '<span class="tag tag-bullish">偏多</span>', "up", "<strong style='color:#dc2626;'>修复</strong>"
     elif total > 0 and down / total > 0.55:
-        sentiment = '<span class="tag tag-bearish">偏空</span>'
-        stage = "<strong style='color:#16a34a;'>调整</strong>"
-        ratio_class = "down"
-    else:
-        sentiment = '<span class="tag tag-neutral">震荡</span>'
-        stage = "<strong>观察中</strong>"
-        ratio_class = "neutral"
-
-    if "大涨" in overview or "强势" in overview:
-        sentiment = '<span class="tag tag-bullish">强势</span>'
-        stage = "<strong style='color:#dc2626;'>修复</strong>"
-    elif "下跌" in overview and ("跌" in overview[:50] or down > up * 1.3):
-        sentiment = '<span class="tag tag-bearish">较弱</span>'
-        stage = "<strong style='color:#16a34a;'>下跌</strong>"
-
-    if technical.get("trend") == "偏多":
-        stage = "<strong style='color:#dc2626;'>偏多</strong>"
-    elif technical.get("trend") == "偏空":
-        stage = "<strong style='color:#16a34a;'>偏空</strong>"
-
-    return sentiment, ratio_class, stage
+        return '<span class="tag tag-bearish">偏空</span>', "down", "<strong style='color:#16a34a;'>调整</strong>"
+    return '<span class="tag tag-neutral">震荡</span>', "neutral", "<strong>观察中</strong>"
 
 
 def _format_breadth(breadth: dict):
+    if not breadth:
+        return "--", "-- / --"
     up = breadth.get("up")
     down = breadth.get("down")
     limit_up = breadth.get("limit_up")
     limit_down = breadth.get("limit_down")
-
     ratio = f"{up}:{down}" if up is not None and down is not None else "--"
     limits = f"{limit_up if limit_up is not None else '--'} / {limit_down if limit_down is not None else '--'}"
     return ratio, limits
 
 
 def _build_breadth_bar(breadth: dict) -> str:
+    if not breadth:
+        return ""
     up = breadth.get("up") or 0
     down = breadth.get("down") or 0
     total = up + down
     if total == 0:
         return ""
-
     up_pct = round(up / total * 100, 1)
     down_pct = round(down / total * 100, 1)
-
     return f"""
-    <div class="mini-note" style="margin-top:14px;">涨跌家数分布</div>
+    <div class="mini-note" style="margin-top:14px;">涨跌家数分布（总 {breadth.get('total', total)} 家）</div>
     <div class="bar-container">
         <div class="bar bar-up" style="width:{up_pct}%;"></div>
     </div>
@@ -718,14 +529,15 @@ def _build_breadth_bar(breadth: dict) -> str:
 
 def _build_sector_chart(sectors: list) -> str:
     if not sectors:
-        return '<p class="mini-note">暂未提取到板块数据</p>'
-
+        return '<p class="mini-note">暂未获取到板块数据</p>'
     rows = ""
-    max_change = max(abs(s["change"]) for s in sectors) or 1
+    max_change = max(abs(s["change_pct"]) for s in sectors) or 1
     for s in sectors:
-        pct = abs(s["change"]) / max_change * 100
-        cls = "up" if s["change"] > 0 else "down"
-        bar_cls = "bar-up" if s["change"] > 0 else "bar-down"
+        pct = abs(s["change_pct"]) / max_change * 100
+        cls = "up" if s["change_pct"] > 0 else "down"
+        bar_cls = "bar-up" if s["change_pct"] > 0 else "bar-down"
+        inflow = s.get("main_inflow")
+        inflow_txt = f" | 主力 {inflow:+.1f}亿" if isinstance(inflow, (int, float)) else ""
         rows += f"""
         <div class="sector-row">
             <span class="sector-name">{s['name']}</span>
@@ -734,14 +546,43 @@ def _build_sector_chart(sectors: list) -> str:
                     <div class="bar {bar_cls}" style="width:{pct:.1f}%;"></div>
                 </div>
             </div>
-            <span class="sector-change {cls}">{s['change']:+.2f}%</span>
+            <span class="sector-change {cls}">{s['change_pct']:+.2f}%{inflow_txt}</span>
         </div>
         """
     return f'<div class="sector-list">{rows}</div>'
 
 
+def _build_fund_section(inflow: list, limitup: list) -> str:
+    parts = []
+    if inflow:
+        rows = ""
+        for x in inflow[:10]:
+            cls = "up" if x.get("change_pct", 0) >= 0 else "down"
+            rows += f"""
+            <tr>
+                <td>{x['name']}</td>
+                <td class="{cls}">{x.get('change_pct', 0):+.2f}%</td>
+                <td class="up">{x.get('main_inflow', 0):+.1f}亿</td>
+            </tr>
+            """
+        parts.append(f"""
+        <div class="mini-note">主力资金净流入 TOP10（单位：亿元）</div>
+        <table>
+            <thead><tr><th>个股</th><th>涨跌幅</th><th>主力净流入</th></tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+        """)
+    else:
+        parts.append('<p class="mini-note">主力资金数据暂缺</p>')
+
+    if limitup:
+        chips = "".join(f'<span class="chip">{x["name"]} {x.get("change_pct",0):+.2f}%</span>' for x in limitup[:12])
+        parts.append(f'<div class="mini-note" style="margin-top:14px;">涨停个股（{len(limitup)} 只，取前 12）</div><div style="margin-top:6px;">{chips}</div>')
+    return "".join(parts)
+
+
 def _build_advice(position, strategy, risk_level, rec_dirs, outlook):
-    chips = "".join(f'<span class="chip">{d}</span>' for d in rec_dirs)
+    chips = "".join(f'<span class="chip">{dd}</span>' for dd in rec_dirs)
     out_tag = {"看多": "tag-bullish", "看空": "tag-bearish", "震荡": "tag-neutral"}[outlook]
     return f"""
     <div class="advice-grid">
@@ -754,20 +595,15 @@ def _build_advice(position, strategy, risk_level, rec_dirs, outlook):
             <div class="value {('up' if risk_level=='偏高' else 'neutral')}">{risk_level}</div>
         </div>
     </div>
-    <div class="advice-strategy">
-        <strong>操作策略：</strong>{strategy}
-    </div>
-    <div class="advice-dir">
-        <strong>关注方向：</strong><br>
-        {chips}
-    </div>
+    <div class="advice-strategy"><strong>操作策略：</strong>{strategy}</div>
+    <div class="advice-dir"><strong>关注方向：</strong><br>{chips}</div>
     <div class="alert-box alert-warning">
-        <strong>风控提示：</strong>以上为 AI 基于当日数据的量化建议，仅供参考，<strong>不构成投资建议</strong>。请结合自身风险承受能力独立决策。
+        <strong>风控提示：</strong>以上为 AI 基于当日真实数据的量化建议，仅供参考，<strong>不构成投资建议</strong>。请结合自身风险承受能力独立决策。
     </div>
     """
 
 
-def _build_forecast(score, outlook, levels, technical):
+def _build_forecast(score, outlook, levels):
     if outlook == "看多":
         bull, base, bear = "+1.0% ~ +2.5%", "+0.3% ~ +1.0%", "-0.5% ~ -1.0%"
         bull_p, base_p, bear_p = "30%", "45%", "25%"
@@ -779,9 +615,6 @@ def _build_forecast(score, outlook, levels, technical):
         bull_p, base_p, bear_p = "30%", "40%", "30%"
 
     out_tag = {"看多": "tag-bullish", "看空": "tag-bearish", "震荡": "tag-neutral"}[outlook]
-    rsi_note = f"RSI {int(technical['rsi'])}" if technical.get("rsi") else "RSI 数据缺失"
-    trend_note = technical.get("trend") or "震荡"
-
     level_rows = ""
     for lv in levels:
         level_rows += f"""
@@ -794,11 +627,10 @@ def _build_forecast(score, outlook, levels, technical):
             </span>
         </div>
         """
-
     return f"""
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
         <span class="tag {out_tag}" style="font-size:15px;padding:5px 14px;">次日展望：{outlook}</span>
-        <span class="mini-note">技术面：{trend_note} · {rsi_note}</span>
+        <span class="mini-note">情绪评分 {int(score)}/100</span>
     </div>
     <div class="scenario-grid">
         <div class="scenario scenario-bull">
@@ -818,49 +650,31 @@ def _build_forecast(score, outlook, levels, technical):
         </div>
     </div>
     {level_rows}
-    <div class="disclaimer">
-        注：情景区间为模型基于动量、广度、技术面综合推断，关键位参考支撑/压力位估算，实际走势受消息面与资金面影响，仅供参考。
-    </div>
+    <div class="disclaimer">注：情景区间为模型基于动量、广度综合推断，关键位按 ±1.5% 估算，实际走势受消息面与资金面影响，仅供参考。</div>
     """
 
 
-def _build_news_section(fund_items: list, news_items: list) -> str:
-    items = []
-    for item in fund_items + news_items:
-        item = item.strip()
-        if item and item not in items:
-            items.append(item)
-    items = items[:6]
-
-    if not items:
-        return '<p class="mini-note">暂无资金与新闻数据</p>'
-
-    lis = ""
-    for item in items:
-        lis += f'<div class="news-item">• {item}</div>'
-    return f'<div class="news-list">{lis}</div>'
-
-
-def _build_analysis(indices: list, breadth: dict, sectors: list, overview: str) -> str:
-    up = breadth.get("up") or 0
-    down = breadth.get("down") or 0
-    total = up + down
-
+def _build_analysis(indices, breadth, sectors, outlook):
     notes = []
-    if total > 0:
-        if up / total > 0.65:
+    if breadth and breadth.get("total"):
+        up = breadth["up"] or 0
+        down = breadth["down"] or 0
+        total = up + down
+        if total > 0 and up / total > 0.65:
             notes.append("市场涨多跌少，情绪偏多，但连续大涨后注意分化回落。")
-        elif down / total > 0.55:
+        elif total > 0 and down / total > 0.55:
             notes.append("市场跌多涨少，情绪偏空，宜控仓观察，等待超跌反弹信号。")
         else:
-            notes.append("涨跌家数分化不大，市场以震荡为主，适合观察为主。")
+            notes.append("涨跌家数分化不大，市场以震荡为主，适合观望。")
+    else:
+        notes.append("涨跌家数数据暂缺，仅依据指数判断。")
 
     if sectors:
         top = sectors[0]
-        notes.append(f"领涨方向：<strong>{top['name']}</strong>（{top['change']:+.2f}%），关注其持续性。")
+        notes.append(f"领涨方向：<strong>{top['name']}</strong>（{top['change_pct']:+.2f}%），关注其持续性。")
 
     if indices:
-        changes = [i.get("change") for i in indices if i.get("change") is not None]
+        changes = [i.get("change_pct") for i in indices if _safe(i.get("change_pct")) is not None]
         if changes:
             avg = sum(changes) / len(changes)
             if avg > 1:
@@ -869,11 +683,8 @@ def _build_analysis(indices: list, breadth: dict, sectors: list, overview: str) 
                 notes.append("主要指数收盘较弱，宜保持轻仓。")
 
     note_html = "<br>".join(notes) if notes else "未能生成有效研判，请结合实时行情判断。"
-
     return f"""
-    <div class="section">
-        <p>{note_html}</p>
-    </div>
+    <div class="section"><p>{note_html}</p></div>
     <div class="alert-box alert-warning">
         <strong>风控提示：</strong>本报告为 AI 自动化生成，仅供参考，不构成投资建议。每日 12:10 自动更新。
     </div>
@@ -883,30 +694,28 @@ def _build_analysis(indices: list, breadth: dict, sectors: list, overview: str) 
 def generate_email_summary(market_data: dict) -> str:
     target_date = market_data["target_date"]
     generated_at = market_data["generated_at"]
-    overview = market_data["data"].get("market_overview", {}).get("text", "")
-    indices = parse_indices(overview)
-    breadth = parse_breadth(overview)
-    technical_text = market_data["data"].get("technical", {}).get("text", "")
-    technical = parse_technical(technical_text)
-    score, outlook = compute_outlook(indices, breadth, technical)
+    d = market_data["data"]
+    indices = d.get("indices") or []
+    breadth = d.get("breadth")
+    sectors = d.get("sectors") or []
 
     idx_summary = "\n".join(
-        f"{i['name']}: {i.get('point', '--')} ({i['change']:+.2f}%)" if i.get('change') is not None else f"{i['name']}: {i.get('point', '--')}"
+        f"{i['name']}: {i.get('price', '--')} ({i['change_pct']:+.2f}%)" if _safe(i.get("change_pct")) is not None else f"{i['name']}: {i.get('price', '--')}"
         for i in indices[:3]
     )
+    up = breadth.get("up", "--") if breadth else "--"
+    down = breadth.get("down", "--") if breadth else "--"
+    top_sector = sectors[0]["name"] if sectors else "—"
 
-    up = breadth.get("up", "--")
-    down = breadth.get("down", "--")
-
+    score, outlook = compute_outlook(indices, breadth)
     return f"""A股行情日报 - {target_date}
 生成时间: {generated_at}
 
 [主要指数]
 {idx_summary}
 
-[市场广度]
-涨跌比: {up}:{down}
-
+[市场广度] 涨跌比: {up}:{down}
+[领涨板块] {top_sector}
 [次日展望] {outlook}（情绪评分 {int(score)}/100）
 
 完整报告请点击下方链接查看。
@@ -923,14 +732,33 @@ if __name__ == "__main__":
             data = json.load(f)
     else:
         data = {
-            "target_date": "2026-07-31",
-            "generated_at": "2026-08-01",
+            "target_date": "2026-08-08",
+            "generated_at": "2026-08-08 12:10",
+            "is_trading_day": True,
             "data": {
-                "market_overview": {"text": "上证指数 3832.12 点，涨 0.72%。深证成指 13579.20 点，涨 2.21%。创业板指 3344.50 点，涨 3.06%。全市上涨 4691 家，下跌 728 家，涨停 103 家，跌停 0 家。"},
-                "sector_ranking": {"text": "领涨板块：电气设备 4.35%，传媒 3.89%，证券 3.67%，计算机 3.21%，通信 2.98%。"},
-                "fund_flow": {"text": "北向资金净流入 56.32 亿元，主力资金净流入 128.5 亿元。金融、科技、新能源获资金青睐。"},
-                "news": {"text": "1. 政策面出台促进消费信贷措施。2. 美联储利率保持不变，海外市场回暖。3. 国内重点企业中报预告集中披露。"},
-                "technical": {"text": "上证指数处于多头排列，MA5/MA10/MA20 向上发散，MACD 金叉，RSI 62 中性偏强。支撑位 3780，压力位 3900。量能温和放大，短线趋势向好。"},
+                "indices": [
+                    {"name": "上证指数", "code": "sh000001", "price": 3940.04, "change_abs": 39.69, "change_pct": 1.02},
+                    {"name": "深证成指", "code": "sz399001", "price": 14311.01, "change_abs": 200.89, "change_pct": 1.42},
+                    {"name": "创业板指", "code": "sz399006", "price": 3563.12, "change_abs": 47.56, "change_pct": 1.35},
+                    {"name": "沪深300", "code": "sh000300", "price": 4694.44, "change_abs": 43.13, "change_pct": 0.93},
+                    {"name": "科创50", "code": "sh000688", "price": 1744.02, "change_abs": 42.73, "change_pct": 2.51},
+                ],
+                "breadth": {"up": 3200, "down": 1800, "flat": 200, "limit_up": 65, "limit_down": 3, "total": 5200},
+                "sectors": [
+                    {"name": "半导体", "change_pct": 4.21, "main_inflow": 58.3},
+                    {"name": "计算机", "change_pct": 3.55, "main_inflow": 41.2},
+                    {"name": "通信设备", "change_pct": 2.88, "main_inflow": 22.7},
+                ],
+                "main_inflow_stocks": [
+                    {"name": "中芯国际", "code": "688981", "change_pct": 9.91, "main_inflow": 23.5},
+                    {"name": "宁德时代", "code": "300750", "change_pct": 3.2, "main_inflow": 18.1},
+                ],
+                "limitup_stocks": [
+                    {"name": "中芯国际", "code": "688981", "change_pct": 9.91},
+                    {"name": "比亚迪", "code": "002594", "change_pct": 10.0},
+                ],
+                "em_ok": True,
+                "em_error": "",
             },
         }
     output = sys.argv[2] if len(sys.argv) > 2 else "report.html"
