@@ -48,12 +48,17 @@ jobs:
           print(f'SUCCESS: report_date={target}')
           "
 
-      - name: 发送邮件
+      - name: 发送邮件(每日推送至手机)
         env:
           QQ_EMAIL: ${{ secrets.QQ_EMAIL }}
           QQ_EMAIL_AUTH: ${{ secrets.QQ_EMAIL_AUTH }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
         run: |
+          # 未配置邮箱 Secret 时优雅跳过，保证 Pages 始终能部署（手机随时可看）
+          if [ -z "$QQ_EMAIL" ] || [ -z "$QQ_EMAIL_AUTH" ] || [ -z "$TO_EMAIL" ]; then
+            echo "⚠️ 未配置 QQ 邮箱 Secrets，跳过邮件推送（Pages 仍会部署，手机可访问在线报告）"
+            exit 0
+          fi
           python -c "
           import sys; sys.path.insert(0, '.')
           import json, os

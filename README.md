@@ -83,6 +83,23 @@ git push -u origin main
 3. Branch 选 **gh-pages** → **/(root)** → Save
 4. 等待 1-2 分钟后，报告会出现在：`https://你的用户名.github.io/market-daily/reports/`
 
+### 📱 手机端每天接收推送（两种方式互补）
+
+本项目的"推送到手机"由**邮件步骤**完成，Pages 负责"随时打开看"，二者配合即可：
+
+**方式一：QQ 邮箱 APP 每日推送（推荐，主动提醒）**
+1. 手机应用商店安装 **QQ 邮箱** APP，登录上面的 `TO_EMAIL` 邮箱
+2. 工作流每天 12:10（工作日）跑完后，会自动发来一封邮件：
+   - 邮件正文：当日行情**摘要 + 「查看完整报告」按钮**
+   - 邮件附件：完整 HTML 报告（可直接在手机浏览器打开）
+3. 手机收到邮件即收到推送提醒，点「查看完整报告」即跳转到 Pages 在线完整报告
+
+**方式二：GitHub Pages 随时看（无需推送，自己打开）**
+- 浏览器（含手机）访问 `https://你的用户名.github.io/Automated-task/reports/`
+- 每天报告以 `daily_YYYY-MM-DD.html` 命名，自动更新，离线缓存后可反复看
+
+> **容错说明**：若未配置 QQ 邮箱三个 Secrets，邮件步骤会自动跳过并提示，但 **Pages 仍会正常部署**，手机仍可访问在线报告，不会因缺少邮箱配置而中断整个任务。
+
 ### 最后：开启 Workflow 权限
 
 1. **Settings → Actions → General**
