@@ -25,13 +25,18 @@ jobs:
           python-version: "3.12"
 
       - name: 拉取数据并生成报告
+        env:
+          TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
         run: |
           mkdir -p reports
           python -c "
           import sys; sys.path.insert(0, '.')
-          import json
+          import json, os
           from scripts.fetch_data import fetch_all_market_data
           from scripts.generate_report import generate_report, generate_email_summary
+
+          token = os.environ.get('TUSHARE_TOKEN')
+          print(f'[INFO] Tushare token 配置状态: {\"已配置\" if token else \"未配置(将尝试降级东财)\"}')
 
           data = fetch_all_market_data()
           target = data['target_date']
@@ -45,7 +50,7 @@ jobs:
           with open('email_summary.txt', 'w', encoding='utf-8') as f:
               f.write(summary)
 
-          print(f'SUCCESS: report_date={target}')
+          print(f'SUCCESS: report_date={target} data_source={data[\"data\"][\"data_source\"]}')
           "
 
       - name: 发送邮件(每日推送至手机)

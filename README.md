@@ -16,10 +16,11 @@ GitHub Actions（云端）每天 12:10 触发
 报告部署到 GitHub Pages（手机浏览器可查看）
 ```
 
-> **数据源说明**：本项目直接使用**公开行情接口**，无需任何 API token / 密钥：
-> - 指数（上证 / 深证 / 创业板 / 沪深300 / 科创50）：腾讯财经 `qt.gtimg.cn` 实时接口
-> - 涨跌家数 / 涨停跌停 / 行业板块排行 / 主力资金流入个股：东方财富 `push2` 公开接口
-> - 任一行情源短时不可用时自动降级（指数仍来自腾讯），不会因单点故障导致任务失败。
+> **数据源说明**：
+> - 指数（上证 / 深证 / 创业板 / 沪深300 / 科创50）：腾讯财经 `qt.gtimg.cn` 实时接口（免 token，云端稳定）
+> - 涨跌家数 / 涨停跌停 / 行业板块排行 / 主力资金流入个股：**Tushare 专业 API**（需免费 token `TUSHARE_TOKEN`，云端稳定可靠）
+> - 若未配置 Tushare token：自动降级到东方财富 `push2` 公开接口（云端美国 IP 可能取不到，章节会留空）
+> - 任一行情源短时不可用时指数仍来自腾讯，不会因单点故障导致任务完全失败。
 
 ## 三步部署
 
@@ -60,13 +61,23 @@ git push -u origin main
 
 在 GitHub 仓库页面：**Settings → Secrets and variables → Actions → New repository secret**
 
-添加以下 3 个 Secrets（**行情数据无需任何 token**，只需邮箱配置）：
+添加以下 Secrets：
 
 | Secret 名称 | 值 | 说明 |
 |-------------|-----|------|
+| `TUSHARE_TOKEN` | ⚠️ 见下方 | **Tushare API token（涨跌家数/板块/资金的核心数据源，云端稳定）** |
 | `QQ_EMAIL` | `1876636858@qq.com` | 发件 QQ 邮箱 |
 | `QQ_EMAIL_AUTH` | ⚠️ 见下方 | QQ 邮箱 SMTP 授权码 |
 | `TO_EMAIL` | `1876636858@qq.com` | 收件邮箱 |
+
+> **为什么需要 Tushare？** 本项目指数用腾讯接口（免 token），但涨跌家数 / 行业板块 / 主力资金这几项，东方财富接口在 GitHub 云端（美国 IP）取不到数据。Tushare 是专业 A股数据 API，云端稳定可靠，免费注册即可用。未配置 TUSHARE_TOKEN 时，程序会自动降级尝试东方财富（可能为空）。
+
+#### 如何获取 Tushare token（免费，约 3 分钟）
+
+1. 打开 https://tushare.pro/register 注册（手机号验证）
+2. 登录后进入 **个人主页 → 接口TOKEN** 复制你的 token
+3. 把 token 填到 `TUSHARE_TOKEN`
+4. （可选）在「用户中心 → 积分管理」做任务攒积分，确保 `daily` / `index_daily` / `moneyflow` 等接口可用（基础接口免费）
 
 #### 如何获取 QQ 邮箱授权码
 

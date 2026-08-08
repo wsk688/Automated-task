@@ -537,7 +537,7 @@ def _build_sector_chart(sectors: list) -> str:
         cls = "up" if s["change_pct"] > 0 else "down"
         bar_cls = "bar-up" if s["change_pct"] > 0 else "bar-down"
         inflow = s.get("main_inflow")
-        inflow_txt = f" | 主力 {inflow:+.1f}亿" if isinstance(inflow, (int, float)) else ""
+        inflow_txt = f" | 主力 {inflow:+.1f}亿" if isinstance(inflow, (int, float)) and inflow != 0 else ""
         rows += f"""
         <div class="sector-row">
             <span class="sector-name">{s['name']}</span>
