@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股行情日报 - 2026-08-10</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+    padding: 16px;
+    max-width: 680px;
+    margin: 0 auto;
+}
+.card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+h2 { font-size: 17px; font-weight: 600; margin-bottom: 14px; color: #222; display: flex; align-items: center; }
+h2::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: #378add;
+    border-radius: 2px;
+    margin-right: 8px;
+}
+.subtitle { font-size: 13px; color: #999; margin-bottom: 16px; }
+.holiday-badge {
+    display: inline-block;
+    background: #f5f5f5;
+    color: #888;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 8px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 10px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+th { background: #fafafa; font-weight: 500; color: #666; font-size: 12px; }
+tr:last-child td { border-bottom: none; }
+.up { color: #dc2626; font-weight: 600; }
+.down { color: #16a34a; font-weight: 600; }
+.neutral { color: #666; }
+.tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.tag-bullish { background: #fef2f2; color: #dc2626; }
+.tag-bearish { background: #f0fdf4; color: #16a34a; }
+.tag-neutral { background: #f5f5f5; color: #666; }
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 14px;
+}
+.summary-item {
+    background: #fafafa;
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+}
+.summary-item .label { font-size: 12px; color: #999; margin-bottom: 6px; }
+.summary-item .value { font-size: 20px; font-weight: 700; }
+.bar-container { height: 10px; background: #f0f0f0; border-radius: 5px; overflow: hidden; margin: 10px 0; position: relative; }
+.bar { height: 100%; border-radius: 5px; }
+.bar-up { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.bar-down { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.bar-neutral { background: #d4d4d4; }
+.breadth-labels { display: flex; justify-content: space-between; font-size: 12px; color: #999; }
+.sector-list { margin-top: 10px; }
+.sector-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+.sector-row:last-child { border-bottom: none; }
+.sector-name { color: #333; font-weight: 500; }
+.sector-change { font-weight: 600; min-width: 60px; text-align: right; }
+.sector-bar-wrap { flex: 1; margin: 0 12px; }
+.news-list { margin-top: 8px; }
+.news-item { padding: 10px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; color: #444; }
+.news-item:last-child { border-bottom: none; }
+.news-item strong { color: #222; }
+.alert-box {
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.7;
+}
+.alert-warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #92400e; }
+.alert-info { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e40af; }
+.alert-danger { background: #fef2f2; border-left: 3px solid #dc2626; color: #991b1b; }
+.section { margin-top: 10px; font-size: 13px; color: #555; line-height: 1.8; }
+.footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 24px; padding: 12px 0; }
+.mini-note { font-size: 12px; color: #999; margin-top: 8px; }
+
+/* 情绪仪表盘 */
+.gauge-wrap { display: flex; flex-direction: column; align-items: center; margin: 4px 0 6px; }
+.gauge-label { font-size: 13px; color: #666; margin-top: 2px; }
+.gauge-score { font-size: 26px; font-weight: 800; margin-top: -6px; }
+
+/* 投资建议 */
+.advice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+.advice-item { background: #fafafa; border-radius: 10px; padding: 12px; text-align: center; }
+.advice-item .label { font-size: 12px; color: #999; margin-bottom: 6px; }
+.advice-item .value { font-size: 16px; font-weight: 700; }
+.advice-strategy { background: #f8fafc; border-radius: 10px; padding: 14px; font-size: 14px; line-height: 1.8; margin-bottom: 12px; }
+.advice-dir { font-size: 13px; color: #555; line-height: 1.9; }
+.advice-dir .chip {
+    display: inline-block;
+    background: #fff1f0;
+    color: #dc2626;
+    border: 1px solid #ffccc7;
+    border-radius: 12px;
+    padding: 2px 10px;
+    margin: 2px 4px 0 0;
+    font-size: 12px;
+}
+
+/* 预测情景 */
+.scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.scenario { border-radius: 10px; padding: 12px 8px; text-align: center; }
+.scenario-bull { background: #fef2f2; }
+.scenario-base { background: #f5f5f5; }
+.scenario-bear { background: #f0fdf4; }
+.scenario .s-title { font-size: 12px; color: #888; margin-bottom: 4px; }
+.scenario .s-range { font-size: 16px; font-weight: 700; }
+.scenario .s-prob { font-size: 11px; color: #999; margin-top: 2px; }
+.level-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+.level-row:last-child { border-bottom: none; }
+.level-name { color: #333; font-weight: 500; }
+.level-val { font-weight: 600; }
+.disclaimer { font-size: 11px; color: #bbb; line-height: 1.6; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>A股行情日报</h1>
+    <div class="subtitle">数据日期: 2026-08-10 | 生成: 2026-08-10 05:41</div>
+    <div class="alert-box alert-warning">⚠️ 涨跌家数 / 板块 / 资金数据暂时获取失败（行情源连接异常），以下仅展示指数实时数据。明日将自动重试。</div>
+    
+    <table>
+        <thead><tr><th>指数</th><th>点位</th><th>涨跌幅</th></tr></thead>
+        <tbody>
+        <tr>
+            <td><strong>上证指数</strong></td>
+            <td>3948.54</td>
+            <td class="up">+0.22% ↑</td>
+        </tr>
+        
+        <tr>
+            <td><strong>深证成指</strong></td>
+            <td>14177.91</td>
+            <td class="down">-0.93% ↓</td>
+        </tr>
+        
+        <tr>
+            <td><strong>创业板指</strong></td>
+            <td>3493.55</td>
+            <td class="down">-1.95% ↓</td>
+        </tr>
+        
+        <tr>
+            <td><strong>沪深300</strong></td>
+            <td>4675.4</td>
+            <td class="down">-0.41% ↓</td>
+        </tr>
+        
+        <tr>
+            <td><strong>科创50</strong></td>
+            <td>1713.33</td>
+            <td class="down">-1.76% ↓</td>
+        </tr>
+        </tbody>
+    </table>
+    
+</div>
+
+<div class="card">
+    <h2>市场情绪</h2>
+    <div class="gauge-wrap">
+        
+    <svg width="180" height="108" viewBox="0 0 180 108" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="#eee" stroke-width="12" stroke-linecap="round"/>
+        <path d="M 10 90 A 80 80 0 0 1 67.7 13.2" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="round"/>
+        <line x1="90" y1="90" x2="67.7" y2="13.2" stroke="#f59e0b" stroke-width="3"/>
+        <circle cx="90" cy="90" r="5" fill="#f59e0b"/>
+        <text x="12" y="104" font-size="10" fill="#bbb">0 悲观</text>
+        <text x="138" y="104" font-size="10" fill="#bbb">乐观 100</text>
+    </svg>
+    
+        <div class="gauge-score neutral">41 <span style="font-size:14px;color:#999;font-weight:500;">分</span></div>
+        <div class="gauge-label">综合情绪评分（0 极度悲观 ~ 100 极度乐观）</div>
+    </div>
+    <div class="summary-grid">
+        <div class="summary-item">
+            <div class="label">涨跌比</div>
+            <div class="value neutral">--</div>
+        </div>
+        <div class="summary-item">
+            <div class="label">涨停 / 跌停</div>
+            <div class="value">-- / --</div>
+        </div>
+        <div class="summary-item">
+            <div class="label">情绪判定</div>
+            <div class="value"><span class="tag tag-neutral">数据缺失</span></div>
+        </div>
+        <div class="summary-item">
+            <div class="label">周线阶段</div>
+            <div class="value">观察中</div>
+        </div>
+    </div>
+    
+</div>
+
+<div class="card">
+    <h2>指数表现</h2>
+    <div class="summary-grid">
+        <div class="summary-item" style="margin-bottom:10px;">
+            <div class="label">上证指数</div>
+            <div class="value">3948.54</div>
+            <div class="up" style="font-size:14px;margin-top:4px;">+0.22%</div>
+        </div>
+        
+        <div class="summary-item" style="margin-bottom:10px;">
+            <div class="label">深证成指</div>
+            <div class="value">14177.91</div>
+            <div class="down" style="font-size:14px;margin-top:4px;">-0.93%</div>
+        </div>
+        
+        <div class="summary-item" style="margin-bottom:10px;">
+            <div class="label">创业板指</div>
+            <div class="value">3493.55</div>
+            <div class="down" style="font-size:14px;margin-top:4px;">-1.95%</div>
+        </div>
+        </div>
+    <div class="mini-note">指数涨跌幅对比</div><div class="sector-list">
+        <div class="sector-row">
+            <span class="sector-name">上证指数</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-up" style="width:11.3%;"></div>
+                </div>
+            </div>
+            <span class="sector-change up">+0.22%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">深证成指</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-down" style="width:47.7%;"></div>
+                </div>
+            </div>
+            <span class="sector-change down">-0.93%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">创业板指</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-down" style="width:100.0%;"></div>
+                </div>
+            </div>
+            <span class="sector-change down">-1.95%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">沪深300</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-down" style="width:21.0%;"></div>
+                </div>
+            </div>
+            <span class="sector-change down">-0.41%</span>
+        </div>
+        
+        <div class="sector-row">
+            <span class="sector-name">科创50</span>
+            <div class="sector-bar-wrap">
+                <div class="bar-container" style="margin:0;">
+                    <div class="bar bar-down" style="width:90.3%;"></div>
+                </div>
+            </div>
+            <span class="sector-change down">-1.76%</span>
+        </div>
+        </div>
+</div>
+
+<div class="card">
+    <h2>领涨行业板块</h2>
+    <p class="mini-note">暂未获取到板块数据</p>
+</div>
+
+<div class="card">
+    <h2>资金动向</h2>
+    <p class="mini-note">主力资金数据暂缺</p>
+</div>
+
+<div class="card">
+    <h2>投资建议</h2>
+    
+    <div class="advice-grid">
+        <div class="advice-item">
+            <div class="label">建议仓位</div>
+            <div class="value">30% ~ 50%</div>
+        </div>
+        <div class="advice-item">
+            <div class="label">风险等级</div>
+            <div class="value neutral">中等</div>
+        </div>
+    </div>
+    <div class="advice-strategy"><strong>操作策略：</strong>中性仓位，波段操作为主，留有余地</div>
+    <div class="advice-dir"><strong>关注方向：</strong><br><span class="chip">等待方向明朗</span></div>
+    <div class="alert-box alert-warning">
+        <strong>风控提示：</strong>以上为 AI 基于当日真实数据的量化建议，仅供参考，<strong>不构成投资建议</strong>。请结合自身风险承受能力独立决策。
+    </div>
+    
+</div>
+
+<div class="card">
+    <h2>次日预测展望</h2>
+    
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span class="tag tag-neutral" style="font-size:15px;padding:5px 14px;">次日展望：震荡</span>
+        <span class="mini-note">情绪评分 41/100</span>
+    </div>
+    <div class="scenario-grid">
+        <div class="scenario scenario-bull">
+            <div class="s-title">乐观情景</div>
+            <div class="s-range up">+0.5% ~ +1.5%</div>
+            <div class="s-prob">概率 30%</div>
+        </div>
+        <div class="scenario scenario-base">
+            <div class="s-title">基准情景</div>
+            <div class="s-range neutral">-0.5% ~ +0.5%</div>
+            <div class="s-prob">概率 40%</div>
+        </div>
+        <div class="scenario scenario-bear">
+            <div class="s-title">悲观情景</div>
+            <div class="s-range down">-1.0% ~ -2.0%</div>
+            <div class="s-prob">概率 30%</div>
+        </div>
+    </div>
+    
+        <div class="level-row">
+            <span class="level-name">上证指数 收盘 3948.54</span>
+            <span>
+                <span class="level-val down">支撑 3889.31</span>
+                <span style="color:#ccc;"> | </span>
+                <span class="level-val up">压力 4007.77</span>
+            </span>
+        </div>
+        
+    <div class="disclaimer">注：情景区间为模型基于动量、广度综合推断，关键位按 ±1.5% 估算，实际走势受消息面与资金面影响，仅供参考。</div>
+    
+</div>
+
+<div class="card">
+    <h2>研判与建议</h2>
+    
+    <div class="section"><p>涨跌家数数据暂缺，仅依据指数判断。</p></div>
+    <div class="alert-box alert-warning">
+        <strong>风控提示：</strong>本报告为 AI 自动化生成，仅供参考，不构成投资建议。每日 12:10 自动更新。
+    </div>
+    
+</div>
+
+<div class="footer">
+    本报告由 AI 自动生成，数据来自公开行情（腾讯财经 / 东方财富），仅供参考，<strong>不构成任何投资建议</strong>。预测部分基于历史规律推断，存在误差，请独立判断。 | 2026-08-10 05:41
+</div>
+</body>
+</html>
